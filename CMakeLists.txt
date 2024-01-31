@@ -30,7 +30,9 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(yaalpp main.cpp)
+add_executable(yaalpp main.cpp
+        Yaal.cpp
+        Yaal.h)
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 
 add_executable(example examples/tensor_broadcast_mul.cpp)
