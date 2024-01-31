@@ -41,3 +41,20 @@ Vec2 YaalMLP::get_direction(const Tensor<float, 3> &input_view) const {
     Tensor<float, 0> y = D.chip(1, 2).mean();
     return Vec2(x(0), y(0));
 }
+
+YaalDecision YaalMLP::evaluate(const Tensor<float, 3> &input_view) const {
+    return YaalDecision{
+            .action = YaalAction::Nop,
+            .direction = get_direction(input_view),
+            .speed_factor = 1.0f,
+    };
+}
+
+void Yaal::update(const Tensor<float, 3> &input_view) {
+    auto decision = genome.brain.evaluate(input_view);
+    position += decision.direction * decision.speed_factor;
+}
+
+void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
+    position = position.cwiseMax(min).cwiseMin(max);
+}
