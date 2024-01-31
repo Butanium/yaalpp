@@ -41,9 +41,9 @@ public:
 
     [[nodiscard]] Vec2 get_direction(const Tensor<float, 3> &input_view) const;
 
-    YaalAction get_action(const Tensor<float, 3> &input_view) const;
+//    YaalAction get_action(const Tensor<float, 3> &input_view) const;
 
-    float get_speed_factor(const Tensor<float, 3> &input_view) const;
+//    float get_speed_factor(const Tensor<float, 3> &input_view) const;
 
     YaalDecision evaluate(const Tensor<float, 3> &input_view) const;
 };
