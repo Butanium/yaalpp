@@ -5,6 +5,10 @@
 #include "Yaal.h"
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <utility>
+#include "Constants.h"
+#include "Utils.cpp"
+
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -39,7 +43,7 @@ Vec2 YaalMLP::get_direction(const Tensor<float, 3> &input_view) const {
     D *= weight_map / D_norm;
     Tensor<float, 0> x = D.chip(0, 2).mean();
     Tensor<float, 0> y = D.chip(1, 2).mean();
-    return Vec2(x(0), y(0));
+    return {x(0), y(0)};
 }
 
 YaalDecision YaalMLP::evaluate(const Tensor<float, 3> &input_view) const {
@@ -52,9 +56,34 @@ YaalDecision YaalMLP::evaluate(const Tensor<float, 3> &input_view) const {
 
 void Yaal::update(const Tensor<float, 3> &input_view) {
     auto decision = genome.brain.evaluate(input_view);
-    position += decision.direction * decision.speed_factor;
+    position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
 }
 
 void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
+
+Yaal::Yaal(Vec2 position, YaalGenome genome) : position(std::move(position)), genome(std::move(genome)) {}
+
+thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
+
+YaalGenome YaalGenome::random(int num_channels) {
+    auto speed_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_SPEED, Constants::Yaal::MAX_SPEED);
+    auto fov_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_FIELD_OF_VIEW,
+                                                      Constants::Yaal::MAX_FIELD_OF_VIEW);
+    auto size_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_SIZE, Constants::Yaal::MAX_SIZE);
+    return {
+            .brain = YaalMLP{
+                    .direction_weights = Tensor<float, 1>(num_channels).setRandom(),
+            },
+            .max_speed = speed_rng(generator),
+            .field_of_view = fov_rng(generator),
+            .size = size_rng(generator),
+    };
+}
+
+Yaal Yaal::random(int num_channels, int max_pos, const std::optional<Vec2> &position = std::nullopt) {
+    Vec2 pos = position.value_or(RND_TO_RANGE(Vec2::Random().array(), 0, max_pos));
+    return {pos, YaalGenome::random(num_channels)};
+}
+

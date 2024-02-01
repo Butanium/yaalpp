@@ -55,28 +55,32 @@ public:
      * @param input_view The input view
      * @return The Yaal's decision
      */
-    YaalDecision evaluate(const Tensor<float, 3> &input_view) const;
+    [[nodiscard]] YaalDecision evaluate(const Tensor<float, 3> &input_view) const;
 };
 
 /// The genome of a Yaal. Contains the brain and other fixed parameters
-struct YaalGenome {
+class YaalGenome {
+    static thread_local std::mt19937 generator;
+public:
     YaalMLP brain;
     float max_speed;
     int field_of_view;
-    float max_size;
-    float init_size;
+    int size;
+    static YaalGenome random(int num_channels);
+//    float max_size;
+//    float init_size;
 };
 
 /** The state of a Yaal.
  * Contains the health, energy, age, etc. Those are the parameters that can change during the Yaal's life
  */
-struct YaalState {
-    double health;
-    double max_health;
-    double energy;
-    double max_energy;
-    double age;
-};
+//struct YaalState {
+//    double health;
+//    double max_health;
+//    double energy;
+//    double max_energy;
+//    double age;
+//};
 
 /**
  * A Yaal
@@ -84,12 +88,22 @@ struct YaalState {
  */
 class Yaal {
 public:
-    YaalState internal_state;
+    /**
+     * Construct a Yaal
+     * @param position The initial position
+     * @param genome The genome
+     */
+    Yaal(Vec2 position, YaalGenome genome);
+
+/**
+     * Generate a random Yaal
+     */
+    static Yaal random(int num_channels, int max_pos, const std::optional<Vec2> &position);
+
+//    YaalState internal_state;
     Vec2 position;
     Vec2 direction;
-    float speed;
     YaalGenome genome;
-    std::string sprite;
 
     /**
      * Update the Yaal's state position, direction, speed, etc.
