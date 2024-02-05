@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
-
+#add_compile_options(-ffast-math)
 # Test library
 FetchContent_Declare(
         Catch2
@@ -25,13 +25,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-add_executable(tests tests/test.cpp)
+add_executable(tests tests/test.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/collision.cpp
+        physics/quadtree.cpp
+        physics/quadtree.hpp
+        physics/rect.cpp
+        physics/rect.hpp)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(yaalpp main.cpp)
+add_executable(yaalpp main.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/collision.cpp
+        physics/quadtree.cpp
+        physics/quadtree.hpp
+        physics/rect.cpp
+        physics/rect.hpp)
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 
-add_executable(example examples/tensor_broadcast_mul.cpp)
+add_executable(example examples/tensor_broadcast_mul.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/rect.cpp
+        physics/rect.hpp)
 target_link_libraries(example PRIVATE Eigen3::Eigen)

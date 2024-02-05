@@ -1,7 +1,11 @@
 #include <iostream>
+#include <vector>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
+
+#include "physics/quadtree.hpp"
+#include "physics/rect.hpp"
 #include <cstdio>
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
@@ -64,6 +68,8 @@ void brain.forward(view) {
 using Eigen::Tensor;
 using Eigen::array;
 
+using Vec2 = Eigen::Vector2f;
+
 void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) {
     program.add_description("Yet Another Artificial Life Program in cpp");
     program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>();
@@ -98,4 +104,61 @@ int main(int argc, char *argv[]) {
     // Print the 10*10*5 tensor
     std::cout << map.slice(array<Eigen::Index, 3>{0, 0, 0}, array<Eigen::Index, 3>{10, 10, 5})
               << std::endl;
+
+    /**
+     * QuadTree testing
+     *
+     * Generate 1000 random points, insert them into a quadtree, and query the closest point to each of them
+     */
+
+    int n_points = 100000;
+    std::mt19937 generator;
+    generator.seed(42);
+    auto x_distr = std::uniform_real_distribution<float>(0, (float) 1);
+    auto y_distr = std::uniform_real_distribution<float>(0, (float) 1);
+
+    float t1 = clock();
+    Rect rect(Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1));
+    QuadTree quadTree(rect, 4, 1.f);
+
+    std::vector<Vec2> points;
+    points.reserve(n_points);
+    for (int i = 0; i < n_points; i++) {
+        points.emplace_back(x_distr(generator), y_distr(generator));
+    }
+    float t2 = clock();
+    std::cout << "Generating 1000 random points took " << (t2 - t1) / CLOCKS_PER_SEC << " seconds" << std::endl;
+
+    float t3 = clock();
+    for (Vec2 v: points) {
+        quadTree.insert(v);
+    }
+    float t4 = clock();
+    std::cout << "Inserting 1000 points into the quadtree took " << (t4 - t3) / CLOCKS_PER_SEC << " seconds"
+              << std::endl;
+
+    float t5 = clock();
+    for (const Vec2 &v: points) {
+        quadTree.closest(v);
+    }
+    float t6 = clock();
+    std::cout << "Closest point search took " << (t6 - t5) / CLOCKS_PER_SEC << " seconds" << std::endl;
+
+    float t7 = clock();
+    for (const Vec2 &v: points) {
+        quadTree.naiveClosest(v);
+    }
+    float t8 = clock();
+    std::cout << "Naive closest point search took " << (t8 - t7) / CLOCKS_PER_SEC << " seconds" << std::endl;
+
+    float t9 = clock();
+    float dist;
+    for (const Vec2 &v: points) {
+        for (const Vec2 &v2: points) {
+            dist = (v - v2).squaredNorm();
+        }
+    }
+    float t10 = clock();
+    std::cout << "baseline took " << (t10 - t9) / CLOCKS_PER_SEC << " seconds" << std::endl;
+
 }
