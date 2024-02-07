@@ -17,6 +17,8 @@ FetchContent_Declare(
         GIT_TAG master
 )
 FetchContent_MakeAvailable(Eigen)
+# Avoid parallelization for Eigen
+add_compile_definitions(EIGEN_DONT_PARALLELIZE)
 
 # Argument parser library
 FetchContent_Declare(
