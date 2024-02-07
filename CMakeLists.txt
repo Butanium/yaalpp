@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
 #add_compile_options(-O3 -march=native)
-#add_compile_options(-fopenmp)
+# for debug: add_compile_options(-O0)
 
 # Test library
 FetchContent_Declare(
@@ -19,6 +19,8 @@ FetchContent_Declare(
         GIT_TAG master
 )
 FetchContent_MakeAvailable(Eigen)
+# Avoid parallelization for Eigen
+add_compile_definitions(EIGEN_DONT_PARALLELIZE)
 
 # Argument parser library
 FetchContent_Declare(
@@ -35,6 +37,9 @@ add_executable(tests tests/test.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
+        Yaal.h
+        Yaal.cpp
+        Constants.h
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
@@ -48,6 +53,9 @@ add_executable(yaalpp main.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
+        Yaal.cpp
+        Yaal.h
+        Constants.h
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 find_package(OpenMP)
