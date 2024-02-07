@@ -10,10 +10,9 @@
 #include <optional>
 #include <algorithm>
 #include <Eigen/Core>
+#include <omp.h>
 
 using Vec2 = Eigen::Vector2f;
-
-using namespace Eigen;
 
 QuadTree::QuadTree(Rect rect, int max_capacity, float object_radius)
     : rect(std::move(rect)), max_capacity(max_capacity), object_radius(object_radius)
@@ -21,6 +20,7 @@ QuadTree::QuadTree(Rect rect, int max_capacity, float object_radius)
     subdivided = false;
     empty = true;
     n_points = 0;
+    omp_init_lock(&lock);
 }
 
 QuadTree::QuadTree(Rect rect, int max_capacity)
@@ -45,6 +45,8 @@ QuadTree::~QuadTree()
     {
         delete child;
     }
+
+    omp_destroy_lock(&lock);
 }
 
 void QuadTree::subdivide()
@@ -63,21 +65,30 @@ void QuadTree::subdivide()
 
     for (const Vec2& v : points)
     {
-        insert(v);
+        for (QuadTree *child : children)
+        {
+            if (child->insert(v))
+            {
+                break;
+            }
+        }
     }
-
     points.clear();
     n_points = 0;
 }
 
 bool QuadTree::insert(const Vec2& v)
 {
+    omp_set_lock(&lock);
     if (!rect.contains(v))
     {
+        omp_unset_lock(&lock);
         return false;
     }
     if (subdivided)
     {
+        // if current tree is not a leaf, it can be released.
+        omp_unset_lock(&lock);
         for (int i = 0; i < 4; i++)
         {
             if (children[i]->insert(v))
@@ -86,21 +97,24 @@ bool QuadTree::insert(const Vec2& v)
             }
         }
         throw std::runtime_error("Failed to insert in all children");
-    }
-    if (n_points < max_capacity)
-    {
-        if (n_points == 0)
-        {
-            points.reserve(max_capacity);
+    } else {
+        if (n_points < max_capacity) {
+            if (n_points == 0) {
+                points.reserve(max_capacity);
+            }
+            points.push_back(v);
+            n_points++;
+            empty = false;
+
+            omp_unset_lock(&lock);
+            return true;
+        } else {
+            subdivide();
+            omp_unset_lock(&lock);
+            assert(insert(v));
+            return true;
         }
-        points.push_back(v);
-        n_points++;
-        empty = false;
-        return true;
     }
-    subdivide();
-    assert(insert(v));
-    return true;
 }
 
 void QuadTree::queryCircle(const Vec2& v, std::vector<Vec2> &buffer)
@@ -200,4 +214,20 @@ std::optional<Vec2> QuadTree::closest(const Vec2& v)
     std::optional<Vec2> best;
     closest(v, best, -1);
     return best;
+}
+
+// TODO : implement Yaal class. It should have a Vec2 position argument.
+void QuadTree::initialize(const std::vector<Yaal> &yaals)
+{
+    // TODO : parallelize this loop with OpenMP.
+    /**
+     * Lock mutex of the quadtree when accessing it.
+     * If it is not a leaf, delock the mutex and go to the children.
+     * If it is a leaf (whether full or not), insert the Yaal and delock the mutex.
+     */
+#pragma omp parallel for //TODO : check if static or dynamic scheduling is better
+    for (const Yaal &y : yaals)
+    {
+        insert(y.position);
+    }
 }

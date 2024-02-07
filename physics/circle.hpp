@@ -16,9 +16,9 @@ public:
 
     Circle(Vec2 center, float radius);
 
-    bool contains(const Vec2& v);
+    bool contains(const Vec2& v) const;
 
-    bool intersects(const Circle& c);
+    bool intersects(const Circle& c) const;
 
     bool intersects(const Rect& r) const;
 };

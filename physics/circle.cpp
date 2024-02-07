@@ -1,18 +1,19 @@
 #include "circle.hpp"
 #include "rect.hpp"
 #include <Eigen/Dense>
+#include <utility>
 
 using Vec2 = Eigen::Vector2f;
 
 Circle::Circle(Vec2 center, float radius)
-        : center(center), radius(radius) {
+        : center(std::move(center)), radius(radius) {
 }
 
-bool Circle::contains(const Vec2 &v) {
+bool Circle::contains(const Vec2 &v) const {
     return (center - v).squaredNorm() <= radius * radius;
 }
 
-bool Circle::intersects(const Circle &c) {
+bool Circle::intersects(const Circle &c) const {
     return (center - c.center).squaredNorm() <= (radius + c.radius) * (radius + c.radius);
 }
 

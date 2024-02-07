@@ -111,15 +111,14 @@ int main(int argc, char *argv[]) {
      * Generate 1000 random points, insert them into a quadtree, and query the closest point to each of them
      */
 
-    int n_points = 100000;
+    int n_points = 1000;
     std::mt19937 generator;
-    generator.seed(42);
     auto x_distr = std::uniform_real_distribution<float>(0, (float) 1);
     auto y_distr = std::uniform_real_distribution<float>(0, (float) 1);
 
     float t1 = clock();
-    Rect rect(Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1));
-    QuadTree quadTree(rect, 4, 1.f);
+    Rect rect(Vec2(0, 0), Vec2(1, 1));
+    QuadTree quadTree(rect, 4, 0.01f);
 
     std::vector<Vec2> points;
     points.reserve(n_points);
@@ -127,38 +126,75 @@ int main(int argc, char *argv[]) {
         points.emplace_back(x_distr(generator), y_distr(generator));
     }
     float t2 = clock();
-    std::cout << "Generating 1000 random points took " << (t2 - t1) / CLOCKS_PER_SEC << " seconds" << std::endl;
+    std::cout << "Generating " << n_points << " random points took " << (t2 - t1) / CLOCKS_PER_SEC << " seconds" << std::endl;
 
     float t3 = clock();
     for (Vec2 v: points) {
         quadTree.insert(v);
     }
     float t4 = clock();
-    std::cout << "Inserting 1000 points into the quadtree took " << (t4 - t3) / CLOCKS_PER_SEC << " seconds"
+    std::cout << "Inserting " << n_points << " points into the quadtree took " << (t4 - t3) / CLOCKS_PER_SEC << " seconds"
               << std::endl;
 
+    std::vector<Vec2> closests1;
+    closests1.reserve(n_points);
     float t5 = clock();
     for (const Vec2 &v: points) {
-        quadTree.closest(v);
+        std::optional<Vec2> closest = quadTree.closest(v);
+        if (closest.has_value()) {
+            closests1.push_back(closest.value());
+        } else {
+            std::cout << "No closest point found" << std::endl;
+        }
     }
     float t6 = clock();
     std::cout << "Closest point search took " << (t6 - t5) / CLOCKS_PER_SEC << " seconds" << std::endl;
 
+    std::vector<Vec2> closests2;
+    closests2.reserve(n_points);
     float t7 = clock();
     for (const Vec2 &v: points) {
-        quadTree.naiveClosest(v);
+        std::optional<Vec2> closest = quadTree.naiveClosest(v);
+        if (closest.has_value()) {
+            closests2.push_back(closest.value());
+        } else {
+            std::cout << "No closest point found" << std::endl;
+        }
     }
     float t8 = clock();
     std::cout << "Naive closest point search took " << (t8 - t7) / CLOCKS_PER_SEC << " seconds" << std::endl;
 
+    // verify that the two closest point searches are the same
+    for (int i = 0; i < n_points; i++) {
+        if (closests1[i] != closests2[i]) {
+            std::cout << "Closest point search results differ by " << (closests1[i] - closests2[i]).norm() << std::endl;
+            break;
+        }
+    }
+
+    std::vector<Vec2> closests3;
+    closests3.reserve(n_points);
     float t9 = clock();
     float dist;
     for (const Vec2 &v: points) {
+        float bestDist = -1;
+        Vec2 bestPoint;
         for (const Vec2 &v2: points) {
             dist = (v - v2).squaredNorm();
+            if ((dist < bestDist || bestDist < 0) && dist > 0) {
+                bestDist = dist;
+                bestPoint = v2;
+            }
         }
+        closests3.push_back(bestPoint);
     }
     float t10 = clock();
     std::cout << "baseline took " << (t10 - t9) / CLOCKS_PER_SEC << " seconds" << std::endl;
 
+    for (int i = 0; i < n_points; i++) {
+        if (closests1[i] != closests3[i]) {
+            std::cout << "Closest point search results differ by " << (closests1[i] - closests3[i]).norm() << std::endl;
+            break;
+        }
+    }
 }

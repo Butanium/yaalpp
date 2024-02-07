@@ -16,13 +16,13 @@ public:
 
     Rect(Vec2 v1, Vec2 v2);
 
-    bool contains(const Vec2& v);
+    bool contains(const Vec2& v) const;
 
-    bool intersects(const Rect& r);
+    bool intersects(const Rect& r) const;
 
     bool intersects(const Circle& c) const;
 
-    Vec2 project(const Vec2& v);
+    Vec2 project(const Vec2& v) const;
 
-    float sqr_dist(const Vec2& v);
+    float sqr_dist(const Vec2& v) const;
 };

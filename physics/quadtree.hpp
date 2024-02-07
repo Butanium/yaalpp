@@ -8,6 +8,7 @@
 #include <vector>
 #include <optional>
 #include <Eigen/Core>
+#include <omp.h>
 
 using Vec2 = Eigen::Vector2f;
 
@@ -32,6 +33,8 @@ private:
     std::vector<Vec2> points;
 
     std::vector<QuadTree *> children;
+
+    omp_lock_t lock;
 
     void subdivide();
 
@@ -60,7 +63,11 @@ public:
     // If no points are found, returns
     std::optional<Vec2> naiveClosest(const Vec2& v);
 
-public:
     // returns the closest point to v. Uses a breadth-first search
     std::optional<Vec2> closest(const Vec2& v);
+
+    // Given a set of Yaals, insert them into the quadtree.
+    void initialize(const std::vector<Yaal>& yaals);
+
+    void get_all_closest(const std::vector<Yaal>& yaals);
 };
