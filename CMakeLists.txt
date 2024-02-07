@@ -61,6 +61,8 @@ target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(yaalpp PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(tests PUBLIC OpenMP::OpenMP_CXX)
+
 endif()
 
 add_executable(example examples/tensor_broadcast_mul.cpp

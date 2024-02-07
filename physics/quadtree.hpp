@@ -9,6 +9,7 @@
 #include <optional>
 #include <Eigen/Core>
 #include <omp.h>
+#include "../Yaal.h"
 
 using Vec2 = Eigen::Vector2f;
 

@@ -3,14 +3,10 @@
 */
 
 #include "quadtree.hpp"
-#include "rect.hpp"
 #include "circle.hpp"
 #include <utility>
-#include <vector>
-#include <optional>
 #include <algorithm>
-#include <Eigen/Core>
-#include <omp.h>
+
 
 using Vec2 = Eigen::Vector2f;
 
