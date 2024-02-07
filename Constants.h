@@ -7,6 +7,7 @@
 
 namespace Constants {
     static constexpr float DELTA_T = 1;
+    static constexpr float EPSILON = 1e-6;
     namespace Yaal {
         static constexpr float MIN_SPEED = 0.1f;
         static constexpr float MAX_SPEED = 1.0f;

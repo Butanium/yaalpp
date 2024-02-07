@@ -7,7 +7,6 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <utility>
 #include "Constants.h"
-#include "Utils.cpp"
 
 
 using Eigen::Tensor;
@@ -27,23 +26,44 @@ Vec2 YaalMLP::get_direction(const Tensor<float, 3> &input_view) const {
             .broadcast(array<Eigen::Index, 3>{1, 1, 2});
     // Create D: (2F+1, 2F+1, 2). D_ij is the direction from the F,F pixel to the i,j pixel
     // Init with the same height and width as the input view
-    Tensor<float, 3> D(input_view.dimension(0), input_view.dimension(1), 2);
+    Tensor<float, 3> directions(input_view.dimension(0), input_view.dimension(1), 2);
     // Fill D with the direction vectors
-    D.setZero();
+    directions.setZero();
     for (int d = 0; d < 2; d++) {
-        auto center = input_view.dimension(d) / 2;
+        auto dim = input_view.dimension(d);
+        float center;
+        if (dim % 2 == 0) {
+            center = (float) dim / 2.f - 0.5f;
+        } else {
+            center = (float) (dim / 2);
+        }
         for (int i = 0; i < input_view.dimension(d); i++) {
-            D.chip(d, 2).chip(i, d).setConstant((float) (i - center));
+            float cst;
+            if (d == 0) {
+                cst = (float) (i - center);
+            } else {
+                cst = (float) (center - i);
+            }
+            directions.chip(d, 2).chip(i, 1 - d).setConstant(cst);
         }
     }
     // Divide each direction vector by its norm
-    auto D_norm = D.square().sum(array<Eigen::Index, 1>{2}).sqrt().reshape(
+    Tensor<float, 3> d_norms = directions.square().sum(array<Eigen::Index, 1>{2}).sqrt().reshape(
             array<Eigen::Index, 3>{input_view.dimension(0), input_view.dimension(1), 1}).broadcast(
             array<Eigen::Index, 3>{1, 1, 2});
-    D *= weight_map / D_norm;
-    Tensor<float, 0> x = D.chip(0, 2).mean();
-    Tensor<float, 0> y = D.chip(1, 2).mean();
-    return {x(0), y(0)};
+    if (input_view.dimension(0) % 2 && input_view.dimension(1) % 2) {
+        d_norms.chip(input_view.dimension(0) / 2, 0).chip(input_view.dimension(1) / 2, 0).setConstant(1);
+    }
+    directions *= weight_map / d_norms;
+    Tensor<float, 0> x = directions.chip(0, 2).mean();
+    Tensor<float, 0> y = directions.chip(1, 2).mean();
+    Vec2 direction = {x(0), y(0)};
+    auto norm = direction.norm();
+    if (norm < Constants::EPSILON) {
+        return Vec2::Zero();
+    }
+    direction.normalize();
+    return direction;
 }
 
 YaalDecision YaalMLP::evaluate(const Tensor<float, 3> &input_view) const {
@@ -66,6 +86,8 @@ void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
 Yaal::Yaal(Vec2 position, YaalGenome genome) : position(std::move(position)), genome(std::move(genome)) {}
 
 thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
+thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+
 
 YaalGenome YaalGenome::random(int num_channels) {
     auto speed_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_SPEED, Constants::Yaal::MAX_SPEED);
@@ -82,8 +104,16 @@ YaalGenome YaalGenome::random(int num_channels) {
     };
 }
 
-Yaal Yaal::random(int num_channels, int max_pos, const std::optional<Vec2> &position = std::nullopt) {
-    Vec2 pos = position.value_or(RND_TO_RANGE(Vec2::Random().array(), 0, max_pos));
-    return {pos, YaalGenome::random(num_channels)};
+Yaal Yaal::random(int num_channels, const Vec2 &position) {
+    return {position, YaalGenome::random(num_channels)};
 }
 
+void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
+    std::uniform_real_distribution<float> x_rng(min.x(), max.x());
+    std::uniform_real_distribution<float> y_rng(min.y(), max.y());
+    position = {x_rng(generator), y_rng(generator)};
+}
+
+Yaal Yaal::random(int num_channels) {
+    return random(num_channels, Vec2::Zero());
+}

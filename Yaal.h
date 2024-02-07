@@ -94,11 +94,16 @@ public:
      * @param genome The genome
      */
     Yaal(Vec2 position, YaalGenome genome);
+    static thread_local std::mt19937 generator;
+
 
 /**
      * Generate a random Yaal
      */
-    static Yaal random(int num_channels, int max_pos, const std::optional<Vec2> &position);
+    static Yaal random(int num_channels, const Vec2 &position);
+
+    static Yaal random(int num_channels);
+
 
 //    YaalState internal_state;
     Vec2 position;
@@ -110,6 +115,8 @@ public:
      * @param input_view What the Yaal sees
      */
     void update(const Tensor<float, 3> &input_view);
+
+    void setRandomPosition(const Vec2 &min, const Vec2 &max);
 
     /**
      * Bound the Yaal's position between min and max
