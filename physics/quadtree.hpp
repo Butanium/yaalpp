@@ -70,5 +70,5 @@ public:
     // Given a set of Yaals, insert them into the quadtree.
     void initialize(const std::vector<Yaal>& yaals);
 
-    void get_all_closest(const std::vector<Yaal>& yaals);
+    void get_all_closest(const std::vector<Yaal> &yaals, Vec2* closestPoints);
 };
