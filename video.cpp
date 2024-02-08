@@ -6,7 +6,7 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <mpi.h>
 
-#define FPS 16
+#define FPS 2
 
 using namespace std;
 using namespace cv;
@@ -115,14 +115,14 @@ void Stream::write_frame() {
   MPI_Gatherv(nullptr, 0, MPI_UNSIGNED_CHAR, this->buffer, this->recvcounts, this->displs, MPI_UNSIGNED_CHAR, 0, this->comm); // Gatherv because rank 0 only receive (no send)
 
   for (int i = 1; i < comm_size; i++) {
-    Mat worker_frame(this->size, CV_8UC3, this->buffer + (i * this->worker_img_size * this->img_buffer->elemSize()));
-
+    Mat worker_frame(this->worker_size, CV_8UC3, this->buffer + ((i-1) * this->worker_size.area() * this->img_buffer->elemSize()));
     Rect worker_rect( ((i-1) % this->workers_row) * this->worker_size.width, ((i-1) / 4) * this->worker_size.height, this->worker_size.width, this->worker_size.height);
 
     worker_frame.copyTo( (*this->img_buffer)(worker_rect) );
   }
 
 
+  cout << "Writing " << *this->img_buffer << endl;
   this->writer->write(*this->img_buffer);
 }
 
