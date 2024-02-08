@@ -13,7 +13,7 @@ namespace Constants {
         static constexpr float MAX_SPEED = 1.0f;
         static constexpr int MIN_FIELD_OF_VIEW = 1;
         static constexpr int MAX_FIELD_OF_VIEW = 10;
-        static constexpr int MIN_SIZE = 1;
+        static constexpr int MIN_SIZE = 10;
         static constexpr int MAX_SIZE = 10;
     }
 }
