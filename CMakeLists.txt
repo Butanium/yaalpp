@@ -32,13 +32,14 @@ FetchContent_MakeAvailable(argparse)
 
 add_executable(tests tests/test.cpp
         physics/circle.cpp
+        physics/circle.cpp
         physics/circle.hpp
         physics/quadtree.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
-        Yaal.h
-        Yaal.cpp
+        entity/Yaal.h
+        entity/Yaal.cpp
         Constants.h
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
@@ -52,8 +53,8 @@ add_executable(yaalpp main.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
-        Yaal.cpp
-        Yaal.h
+        entity/Yaal.cpp
+        entity/Yaal.h
         Constants.h
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)

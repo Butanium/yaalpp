@@ -6,7 +6,7 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <utility>
-#include "Constants.h"
+#include "../Constants.h"
 
 
 using Eigen::Tensor;
