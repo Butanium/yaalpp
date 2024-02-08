@@ -83,11 +83,13 @@ void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
 
-Yaal::Yaal(Vec2 position, YaalGenome genome) : position(std::move(position)), genome(std::move(genome)) {}
+Yaal::Yaal(Vec2&& position, YaalGenome&& genome) : position(std::move(position)), genome(std::move(genome)) {}
 
+Yaal::Yaal(const Vec2 &position, const YaalGenome &genome) : position(position), genome(genome) {}
+
+// TODO : is it ok with openmp ?
 thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
 thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
-
 
 YaalGenome YaalGenome::random(int num_channels) {
     auto speed_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_SPEED, Constants::Yaal::MAX_SPEED);

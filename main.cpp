@@ -1,7 +1,12 @@
 #include <iostream>
+#include <vector>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
+
+#include "physics/quadtree.hpp"
+#include "physics/rect.hpp"
+#include <omp.h>
 #include <cstdio>
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
@@ -64,6 +69,8 @@ void brain.forward(view) {
 using Eigen::Tensor;
 using Eigen::array;
 
+using Vec2 = Eigen::Vector2f;
+
 void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) {
     program.add_description("Yet Another Artificial Life Program in cpp");
     program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>();
@@ -98,4 +105,7 @@ int main(int argc, char *argv[]) {
     // Print the 10*10*5 tensor
     std::cout << map.slice(array<Eigen::Index, 3>{0, 0, 0}, array<Eigen::Index, 3>{10, 10, 5})
               << std::endl;
+#ifdef _OPENMP
+    std::cout << "OpenMP is enabled" << std::endl;
+#endif
 }

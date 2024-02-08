@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
+# for performance: add_compile_options(-O3 -march=native)
+add_compile_options(-fopenmp)
 # for debug: add_compile_options(-O0)
+
 # Test library
 FetchContent_Declare(
         Catch2
@@ -28,6 +31,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 add_executable(tests tests/test.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/quadtree.cpp
+        physics/quadtree.hpp
+        physics/rect.cpp
+        physics/rect.hpp
         Yaal.h
         Yaal.cpp
         Constants.h
@@ -37,11 +46,28 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(yaalpp main.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/quadtree.cpp
+        physics/quadtree.hpp
+        physics/rect.cpp
+        physics/rect.hpp
         Yaal.cpp
         Yaal.h
         Constants.h
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(yaalpp PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(tests PUBLIC OpenMP::OpenMP_CXX)
 
-add_executable(example examples/tensor_broadcast_mul.cpp)
+endif()
+
+add_executable(example examples/tensor_broadcast_mul.cpp
+        physics/circle.cpp
+        physics/circle.hpp
+        physics/rect.cpp
+        physics/rect.hpp
+)
 target_link_libraries(example PRIVATE Eigen3::Eigen)
