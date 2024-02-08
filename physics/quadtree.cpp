@@ -10,7 +10,7 @@
 
 using Vec2 = Eigen::Vector2f;
 
-QuadTree::QuadTree(Rect rect, int max_capacity, float object_radius)
+QuadTree::QuadTree(Rect&& rect, int max_capacity, float object_radius)
         : rect(std::move(rect)), max_capacity(max_capacity), object_radius(object_radius) {
     subdivided = false;
     empty = true;
@@ -18,15 +18,15 @@ QuadTree::QuadTree(Rect rect, int max_capacity, float object_radius)
     omp_init_lock(&lock);
 }
 
-QuadTree::QuadTree(Rect rect, int max_capacity)
+QuadTree::QuadTree(Rect&& rect, int max_capacity)
         : QuadTree(std::move(rect), max_capacity, 0) {
 }
 
-QuadTree::QuadTree(Rect rect, float object_radius)
+QuadTree::QuadTree(Rect&& rect, float object_radius)
         : QuadTree(std::move(rect), 1, object_radius) {
 }
 
-QuadTree::QuadTree(Rect rect)
+QuadTree::QuadTree(Rect&& rect)
         : QuadTree(std::move(rect), 1, 0) {
 }
 
@@ -39,11 +39,10 @@ QuadTree::~QuadTree() {
 }
 
 void QuadTree::subdivide() {
-    subdivided = true;
     children.reserve(4);
 
-    Vec2 v1 = rect.v1;
-    Vec2 v2 = rect.v2;
+    Vec2 v1 = rect.top_left;
+    Vec2 v2 = rect.size;
     Vec2 v2_half = v2 / 2;
 
     children.push_back(new QuadTree(Rect(v1, v2_half), max_capacity, object_radius));
@@ -60,25 +59,27 @@ void QuadTree::subdivide() {
     }
     points.clear();
     n_points = 0;
+    subdivided = true;
 }
 
 bool QuadTree::insert(const Vec2 &v) {
-    omp_set_lock(&lock);
+    printf("hello from thread %d. Inserting in tree %p\n", omp_get_thread_num(), this);
     if (!rect.contains(v)) {
-        omp_unset_lock(&lock);
         return false;
     }
-    if (subdivided) {
-        // if current tree is not a leaf, it can be released.
-        omp_unset_lock(&lock);
-        for (int i = 0; i < 4; i++) {
-            if (children[i]->insert(v)) {
-                return true;
-            }
+    bool goto_ = false;
+    if (!subdivided) {
+        printf("thread %d is trying to lock %p\n", omp_get_thread_num(), this);
+        omp_set_lock(&lock);
+        if (subdivided) {
+            printf("thread %d underwent heavy confusion spell\n", omp_get_thread_num());
+            // Magic !
+            omp_unset_lock(&lock);
+            goto_ = true;
+            goto insert_in_children;
         }
-        throw std::runtime_error("Failed to insert in all children");
-    } else {
         if (n_points < max_capacity) {
+            printf("thread %d is inserting in non full tree %p\n", omp_get_thread_num(), this);
             if (n_points == 0) {
                 points.reserve(max_capacity);
             }
@@ -87,13 +88,32 @@ bool QuadTree::insert(const Vec2 &v) {
             empty = false;
 
             omp_unset_lock(&lock);
+            printf("thread %d successfully released tree %p\n", omp_get_thread_num(), this);
             return true;
         } else {
+            printf("thread %d is subdividing tree %p\n", omp_get_thread_num(), this);
             subdivide();
+            printf("thread %d successfully subdivided tree %p\n", omp_get_thread_num(), this);
+            printf("thread %d is inserting in full tree %p\n", omp_get_thread_num(), this);
             omp_unset_lock(&lock);
+            printf("thread %d successfully released tree %p\n", omp_get_thread_num(), this);
             assert(insert(v));
             return true;
         }
+    }
+    insert_in_children:
+    if (subdivided) {
+        printf("thread %d is inserting in children of tree %p\n", omp_get_thread_num(), this);
+        // if current tree is not a leaf, it can be released.
+        for (int i = 0; i < 4; i++) {
+            printf("thread %d is inserting in child %p\n", omp_get_thread_num(), children[i]);
+            auto c = children[i];
+            auto r = children[i]->rect;
+            if (children[i]->insert(v)) {
+                return true;
+            }
+        }
+        throw std::runtime_error("Failed to insert in all children");
     }
 }
 

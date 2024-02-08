@@ -5,8 +5,12 @@
 
 using Vec2 = Eigen::Vector2f;
 
-Circle::Circle(Vec2 center, float radius)
+Circle::Circle(Vec2&& center, float radius)
         : center(std::move(center)), radius(radius) {
+}
+
+Circle::Circle(const Vec2& center, float radius)
+        : center(center), radius(radius) {
 }
 
 bool Circle::contains(const Vec2 &v) const {

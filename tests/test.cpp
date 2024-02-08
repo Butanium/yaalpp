@@ -75,7 +75,7 @@ TEST_CASE("Checking validity of quadtree closest neighbor search :") {
     auto y_distr = std::uniform_real_distribution<float>(0, (float) 1);
 
     Rect rect(Vec2(0, 0), Vec2(1, 1));
-    QuadTree quadTree(rect, 4);
+    QuadTree quadTree(std::move(rect), 4);
 
     std::vector<Vec2> points;
     points.reserve(n_points);

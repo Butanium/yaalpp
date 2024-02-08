@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
 #add_compile_options(-O3 -march=native)
+add_compile_options(-fopenmp)
 # for debug: add_compile_options(-O0)
 
 # Test library
@@ -32,7 +33,6 @@ FetchContent_MakeAvailable(argparse)
 add_executable(tests tests/test.cpp
         physics/circle.cpp
         physics/circle.hpp
-        physics/collision.cpp
         physics/quadtree.cpp
         physics/quadtree.hpp
         physics/rect.cpp
@@ -48,7 +48,6 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(yaalpp main.cpp
         physics/circle.cpp
         physics/circle.hpp
-        physics/collision.cpp
         physics/quadtree.cpp
         physics/quadtree.hpp
         physics/rect.cpp

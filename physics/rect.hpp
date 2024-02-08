@@ -11,10 +11,12 @@ class Rect
      * A rectangle can be n-d and is defined by its "top left" vector and its "width" vector, which must be all positive
     */
 public:
-    Vec2 v1;
-    Vec2 v2;
+    Vec2 top_left;
+    Vec2 size;
 
-    Rect(Vec2 v1, Vec2 v2);
+    Rect(Vec2&& top_left, Vec2&& size);
+
+    Rect(const Vec2& top_left, const Vec2& size);
 
     bool contains(const Vec2& v) const;
 

@@ -47,13 +47,13 @@ private:
 
 public:
     // default capacity is 1 and default radius is 0
-    explicit QuadTree(Rect rect);
+    explicit QuadTree(Rect&& rect);
 
-    QuadTree(Rect rect, float object_radius);
+    QuadTree(Rect&& rect, float object_radius);
 
-    QuadTree(Rect rect, int max_capacity);
+    QuadTree(Rect&& rect, int max_capacity);
 
-    QuadTree(Rect rect, int max_capacity, float object_radius);
+    QuadTree(Rect&& rect, int max_capacity, float object_radius);
 
     ~QuadTree();
 

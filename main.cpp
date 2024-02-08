@@ -6,6 +6,7 @@
 
 #include "physics/quadtree.hpp"
 #include "physics/rect.hpp"
+#include <omp.h>
 #include <cstdio>
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
@@ -110,35 +111,43 @@ int main(int argc, char *argv[]) {
      *
      * Generate 1000 random points, insert them into a quadtree, and query the closest point to each of them
      */
+#ifdef _OPENMP
+    std::cout << "OpenMP is enabled" << std::endl;
+#endif
 
-    int n_points = 1000;
+    int n_points = 10000;
     std::mt19937 generator;
     auto x_distr = std::uniform_real_distribution<float>(0, (float) 1);
     auto y_distr = std::uniform_real_distribution<float>(0, (float) 1);
 
-    float t1 = clock();
+    float t1 = omp_get_wtime();
     Rect rect(Vec2(0, 0), Vec2(1, 1));
-    QuadTree quadTree(rect, 4, 0.01f);
+    QuadTree quadTree(std::move(rect), 4, 0.01f);
 
     std::vector<Vec2> points;
     points.reserve(n_points);
     for (int i = 0; i < n_points; i++) {
         points.emplace_back(x_distr(generator), y_distr(generator));
     }
-    float t2 = clock();
-    std::cout << "Generating " << n_points << " random points took " << (t2 - t1) / CLOCKS_PER_SEC << " seconds" << std::endl;
+    float t2 = omp_get_wtime();
+    std::cout << "Generating " << n_points << " random points took " << (t2 - t1) << " seconds" << std::endl;
 
-    float t3 = clock();
-    for (Vec2 v: points) {
-        quadTree.insert(v);
+//    for (int i = 0; i < n_points / 2; i++) {
+//        quadTree.insert(points[i]);
+//    }
+
+    float t3 = omp_get_wtime();
+#pragma omp parallel for default(none) shared(quadTree, points, n_points) schedule(static) num_threads(16)
+    for (int i = 0; i < n_points; i++) {
+        quadTree.insert(points[i]);
     }
-    float t4 = clock();
-    std::cout << "Inserting " << n_points << " points into the quadtree took " << (t4 - t3) / CLOCKS_PER_SEC << " seconds"
+    float t4 = omp_get_wtime();
+    std::cout << "Inserting " << n_points << " points into the quadtree took " << (t4 - t3) << " seconds"
               << std::endl;
 
     std::vector<Vec2> closests1;
     closests1.reserve(n_points);
-    float t5 = clock();
+    float t5 = omp_get_wtime();
     for (const Vec2 &v: points) {
         std::optional<Vec2> closest = quadTree.closest(v);
         if (closest.has_value()) {
@@ -147,54 +156,35 @@ int main(int argc, char *argv[]) {
             std::cout << "No closest point found" << std::endl;
         }
     }
-    float t6 = clock();
-    std::cout << "Closest point search took " << (t6 - t5) / CLOCKS_PER_SEC << " seconds" << std::endl;
-
-    std::vector<Vec2> closests2;
-    closests2.reserve(n_points);
-    float t7 = clock();
-    for (const Vec2 &v: points) {
-        std::optional<Vec2> closest = quadTree.naiveClosest(v);
-        if (closest.has_value()) {
-            closests2.push_back(closest.value());
-        } else {
-            std::cout << "No closest point found" << std::endl;
-        }
-    }
-    float t8 = clock();
-    std::cout << "Naive closest point search took " << (t8 - t7) / CLOCKS_PER_SEC << " seconds" << std::endl;
-
-    // verify that the two closest point searches are the same
-    for (int i = 0; i < n_points; i++) {
-        if (closests1[i] != closests2[i]) {
-            std::cout << "Closest point search results differ by " << (closests1[i] - closests2[i]).norm() << std::endl;
-            break;
-        }
-    }
+    float t6 = omp_get_wtime();
+    std::cout << "Closest point search took " << (t6 - t5) << " seconds" << std::endl;
 
     std::vector<Vec2> closests3;
     closests3.reserve(n_points);
-    float t9 = clock();
-    float dist;
-    for (const Vec2 &v: points) {
+    float t9 = omp_get_wtime();
+
+#pragma omp parallel for default(none) shared(quadTree, points, n_points, closests3) schedule(static) num_threads(16)
+    for (int i = 0; i < n_points; i++) {
+        float dist;
         float bestDist = -1;
         Vec2 bestPoint;
-        for (const Vec2 &v2: points) {
-            dist = (v - v2).squaredNorm();
+        for (int j = 0; j < n_points; j++) {
+            dist = (points[i] - points[j]).squaredNorm();
             if ((dist < bestDist || bestDist < 0) && dist > 0) {
                 bestDist = dist;
-                bestPoint = v2;
+                bestPoint = points[j];
             }
         }
-        closests3.push_back(bestPoint);
+        closests3[i] = bestPoint;
     }
-    float t10 = clock();
-    std::cout << "baseline took " << (t10 - t9) / CLOCKS_PER_SEC << " seconds" << std::endl;
+    float t10 = omp_get_wtime();
+    std::cout << "baseline took " << (t10 - t9) << " seconds" << std::endl;
 
+    int n_diff = 0;
     for (int i = 0; i < n_points; i++) {
         if (closests1[i] != closests3[i]) {
-            std::cout << "Closest point search results differ by " << (closests1[i] - closests3[i]).norm() << std::endl;
-            break;
+            n_diff++;
         }
     }
+    std::cout << "Number of differences: " << n_diff << std::endl;
 }

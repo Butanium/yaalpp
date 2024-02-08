@@ -93,9 +93,11 @@ public:
      * @param position The initial position
      * @param genome The genome
      */
-    Yaal(Vec2 position, YaalGenome genome);
-    static thread_local std::mt19937 generator;
+    Yaal(Vec2&& position, YaalGenome&& genome);
 
+    Yaal(const Vec2 &position, const YaalGenome &genome);
+
+    static thread_local std::mt19937 generator;
 
 /**
      * Generate a random Yaal

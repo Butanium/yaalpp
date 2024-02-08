@@ -7,29 +7,34 @@
 
 using Vec2 = Eigen::Vector2f;
 
-Rect::Rect(Vec2 v1, Vec2 v2)
-    : v1(std::move(v1)), v2(std::move(v2))
+Rect::Rect(Vec2&& top_left, Vec2&& size)
+    : top_left(std::move(top_left)), size(std::move(size))
+{
+}
+
+Rect::Rect(const Vec2& top_left, const Vec2& size)
+        : top_left(top_left), size(size)
 {
 }
 
 bool Rect::contains(const Vec2& v) const
 {
-    return v.x() >= v1.x() && v.x() <= v1.x() + v2.x() && v.y() >= v1.y() && v.y() <= v1.y() + v2.y();
+    return v.x() >= top_left.x() && v.x() <= top_left.x() + size.x() && v.y() >= top_left.y() && v.y() <= top_left.y() + size.y();
 }
 
 bool Rect::intersects(const Rect& r) const
 {
-    return v1.x() <= r.v1.x() + r.v2.x() && v1.x() + v2.x() >= r.v1.x() && v1.y() <= r.v1.y() + r.v2.y() && v1.y() + v2.y() >= r.v1.y();
+    return top_left.x() <= r.top_left.x() + r.size.x() && top_left.x() + size.x() >= r.top_left.x() && top_left.y() <= r.top_left.y() + r.size.y() && top_left.y() + size.y() >= r.top_left.y();
 }
 
 bool Rect::intersects(const Circle& c) const
 {
-    return c.center.x() + c.radius >= v1.x() && c.center.x() - c.radius <= v1.x() + v2.x() && c.center.y() + c.radius >= v1.y() && c.center.y() - c.radius <= v1.y() + v2.y();
+    return c.center.x() + c.radius >= top_left.x() && c.center.x() - c.radius <= top_left.x() + size.x() && c.center.y() + c.radius >= top_left.y() && c.center.y() - c.radius <= top_left.y() + size.y();
 }
 
 Vec2 Rect::project(const Vec2& v) const
 {
-    return Vec2(std::clamp(v.x(), v1.x(), v1.x() + v2.x()), std::clamp(v.y(), v1.y(), v1.y() + v2.y()));
+    return Vec2(std::clamp(v.x(), top_left.x(), top_left.x() + size.x()), std::clamp(v.y(), top_left.y(), top_left.y() + size.y()));
 }
 
 float Rect::sqr_dist(const Vec2& v) const

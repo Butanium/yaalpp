@@ -14,7 +14,9 @@ public:
     Vec2 center;
     float radius;
 
-    Circle(Vec2 center, float radius);
+    Circle(Vec2&& center, float radius);
+
+    Circle(const Vec2& center, float radius);
 
     bool contains(const Vec2& v) const;
 
