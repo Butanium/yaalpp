@@ -10,7 +10,7 @@
 
 using Vec2 = Eigen::Vector2f;
 
-QuadTree::QuadTree(Rect&& rect, int max_capacity, float object_radius)
+QuadTree::QuadTree(Rect &&rect, int max_capacity, float object_radius)
         : rect(std::move(rect)), max_capacity(max_capacity), object_radius(object_radius) {
     subdivided = false;
     empty = true;
@@ -18,15 +18,15 @@ QuadTree::QuadTree(Rect&& rect, int max_capacity, float object_radius)
     omp_init_lock(&lock);
 }
 
-QuadTree::QuadTree(Rect&& rect, int max_capacity)
+QuadTree::QuadTree(Rect &&rect, int max_capacity)
         : QuadTree(std::move(rect), max_capacity, 0) {
 }
 
-QuadTree::QuadTree(Rect&& rect, float object_radius)
+QuadTree::QuadTree(Rect &&rect, float object_radius)
         : QuadTree(std::move(rect), 1, object_radius) {
 }
 
-QuadTree::QuadTree(Rect&& rect)
+QuadTree::QuadTree(Rect &&rect)
         : QuadTree(std::move(rect), 1, 0) {
 }
 
@@ -113,7 +113,7 @@ void QuadTree::queryCircle(const Vec2 &v, std::vector<Vec2> &buffer) {
     }
 
     float sqr_radius = object_radius * object_radius;
-    for (const Vec2& p: points) {
+    for (const Vec2 &p: points) {
         if ((p - v).squaredNorm() <= sqr_radius) {
             buffer.push_back(p);
         }
