@@ -25,13 +25,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+# OpenCV
+find_package(OpenCV REQUIRED)
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+link_directories( ${OpenCV_LIB_DIR} )
+
+# OpenMPI
+find_package(MPI REQUIRED)
+
 add_executable(tests tests/test.cpp)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(yaalpp main.cpp)
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
+add_executable(yaalpp main.cpp video.cpp)
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX)
 
 add_executable(example examples/tensor_broadcast_mul.cpp)
 target_link_libraries(example PRIVATE Eigen3::Eigen)
