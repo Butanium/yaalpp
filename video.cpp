@@ -40,7 +40,7 @@ Stream::Stream(const char* filename, Size size, int workers_row, int workers_col
 
   if (comm_size != workers_row * workers_col + 1) {
     if (rank == 0) {
-      cout << "The number of workers is not equal to workers_row * workers_col" << endl;
+      cerr << "The number of workers is not equal to workers_row * workers_col" << endl;
     }
     MPI_Abort(comm, 1);
   }
@@ -116,13 +116,12 @@ void Stream::write_frame() {
 
   for (int i = 1; i < comm_size; i++) {
     Mat worker_frame(this->worker_size, CV_8UC3, this->buffer + ((i-1) * this->worker_size.area() * this->img_buffer->elemSize()));
-    Rect worker_rect( ((i-1) % this->workers_row) * this->worker_size.width, ((i-1) / 4) * this->worker_size.height, this->worker_size.width, this->worker_size.height);
+    Rect worker_rect( ((i-1) % this->workers_row) * this->worker_size.width, ((i-1) / this->workers_row) * this->worker_size.height, this->worker_size.width, this->worker_size.height);
 
     worker_frame.copyTo( (*this->img_buffer)(worker_rect) );
   }
 
 
-  cout << "Writing " << *this->img_buffer << endl;
   this->writer->write(*this->img_buffer);
 }
 

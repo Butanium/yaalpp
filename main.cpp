@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    Stream stream("test.mp4", cv::Size(2, 2), 2, 2, MPI_COMM_WORLD);
+    Stream stream("test.mp4", cv::Size(1000, 1000), 2, 2, MPI_COMM_WORLD);
 
     if (rank == 0) {
       stream.write_frame();
