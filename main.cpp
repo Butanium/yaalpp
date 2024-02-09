@@ -71,21 +71,66 @@ using Eigen::array;
 
 using Vec2 = Eigen::Vector2f;
 
+using OptionGroup = std::vector<argparse::Argument>;
+using GroupsMap = std::map<std::string, OptionGroup>;
+using KeyOGPair = std::pair<std::string, OptionGroup>;
+
+void print_grouped_help(const GroupsMap &groups) {
+    for (auto &group: groups) {
+        std::cout << group.first << ':' << std::endl;
+        for (auto &arg: group.second) {
+            std::cout << arg;
+        }
+        std::cout << std::endl;
+    }
+}
+
+
 void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) {
+    GroupsMap help_groups{
+            KeyOGPair{"General", {}},
+            KeyOGPair{"Simulation parameters", {}},
+            KeyOGPair{"Environment Hyperparameters", {}},
+    };
     program.add_description("Yet Another Artificial Life Program in cpp");
-    program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>();
-    program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>();
-    program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(5).scan<'i', int>();
-    program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
-            argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
-            std::vector<float>{0, 0, 0, 0.9, 0.5}
-    );
-    program.add_argument("-d", "--diffusion-rate").help("Diffusion rate for pheromones").nargs(
-                    argparse::nargs_pattern::at_least_one)
-            .scan<'f', float>();
-    program.add_argument("-m", "--max-values").help("Max values for each channel").nargs(
-            argparse::nargs_pattern::at_least_one).scan<'f', float>();
-    program.parse_args(argc, argv);
+    help_groups["Environment Hyperparameters"] = {
+            program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(
+                    5).scan<'i', int>(),
+            program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
+                    argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
+                    std::vector<float>{0, 0, 0, 0.9, 0.5}
+            ),
+            program.add_argument("-d", "--diffusion-rate").help("Diffusion rate for channel").nargs(
+                            argparse::nargs_pattern::at_least_one)
+                    .scan<'f', float>().default_value(std::vector<float>{0, 0, 0, 0.1, 0.9}),
+            program.add_argument("-m", "--max-values").help("Max values for each channel").nargs(
+                    argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
+                    std::vector<float>{1, 1, 1, 5, 5})
+    };
+    help_groups["General"] = {
+            program.add_argument("-h", "--help").help("Print this help").nargs(0),
+    };
+    help_groups["Simulation parameters"] = {
+            program.add_argument("-n", "--num-yaals").help(
+                    "Number of yaals at the start of the simulation").default_value(100).scan<'i', int>(),
+            program.add_argument("-t", "--timesteps").help("Number of timesteps to simulate").default_value(
+                    10000).scan<'i', int>(),
+    };
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::runtime_error &err) {
+        std::cout << program.usage() << std::endl;
+        print_grouped_help(help_groups);
+        std::cerr << err.what() << std::endl;
+        std::exit(1);
+    }
+    if (program.is_used("--help")) {
+        std::cout << program.usage() << std::endl;
+        print_grouped_help(help_groups);
+        exit(1);
+    }
 }
 
 
