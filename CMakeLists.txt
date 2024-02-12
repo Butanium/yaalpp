@@ -38,7 +38,10 @@ target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(yaalpp main.cpp video.cpp)
+add_executable(yaalpp main.cpp
+  video/stream.cpp
+  video/stream.h
+)
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX)
 
 add_executable(example examples/tensor_broadcast_mul.cpp)

@@ -3,7 +3,7 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
 #include <mpi.h>
-#include "video.h"
+#include "video/stream.h"
 #include <cstdio>
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
@@ -101,60 +101,6 @@ int main(int argc, char *argv[]) {
     // Print the 10*10*5 tensor
     // std::cout << map.slice(array<Eigen::Index, 3>{0, 0, 0}, array<Eigen::Index, 3>{10, 10, 5})
     //           << std::endl;
-
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    Stream stream("test.mp4", cv::Size(1000, 1000), 2, 2, MPI_COMM_WORLD);
-
-    if (rank == 0) {
-      stream.write_frame();
-      stream.write_frame();
-      stream.write_frame();
-      stream.write_frame();
-    } else {
-
-      Tensor<float, 3> red(1, 1, 3);
-      red(0, 0, 0) = 1;
-      red(0, 0, 1) = 0;
-      red(0, 0, 2) = 0;
-
-      Tensor<float, 3> green(1, 1, 3);
-      green(0, 0, 0) = 0;
-      green(0, 0, 1) = 1;
-      green(0, 0, 2) = 0;
-
-      Tensor<float, 3> blue(1, 1, 3);
-      blue(0, 0, 0) = 0;
-      blue(0, 0, 1) = 0;
-      blue(0, 0, 2) = 1;
-
-      if (rank == 1) {
-        stream.append_frame(red);
-        stream.append_frame(green);
-        stream.append_frame(blue);
-        stream.append_frame(red);
-      } else if (rank == 2) {
-        stream.append_frame(blue);
-        stream.append_frame(red);
-        stream.append_frame(green);
-        stream.append_frame(blue);
-      } else if (rank == 3) {
-        stream.append_frame(green);
-        stream.append_frame(blue);
-        stream.append_frame(red);
-        stream.append_frame(green);
-      } else {
-        stream.append_frame(red);
-        stream.append_frame(green);
-        stream.append_frame(blue);
-        stream.append_frame(green);
-      }
-
-    }
-
-    stream.end_stream();
-
 
     MPI_Finalize();
 }

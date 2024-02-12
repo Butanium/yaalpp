@@ -1,4 +1,4 @@
-#include "video.h"
+#include "stream.h"
 #include "opencv2/imgproc.hpp"
 
 #include <iostream>
@@ -24,9 +24,9 @@ Mat* eigen2cv(Tensor<float, 3> &tensor) {
   for (int i = 0; i < tensor.dimension(0); i++) {
     for (int j = 0; j < tensor.dimension(1); j++) {
       BGR* pixel = image->ptr<BGR>(i, j);
-      pixel->blue = (unsigned char)(tensor(i, j, 0) * 255);
+      pixel->red = (unsigned char)(tensor(i, j, 0) * 255);
       pixel->green = (unsigned char)(tensor(i, j, 1) * 255);
-      pixel->red = (unsigned char)(tensor(i, j, 2) * 255);
+      pixel->blue = (unsigned char)(tensor(i, j, 2) * 255);
     }
   }
 
@@ -51,7 +51,7 @@ Stream::Stream(const char* filename, Size size, int workers_row, int workers_col
   if (rank == 0) { // This is the disk writer
     this->writer = new VideoWriter();
     this->img_buffer = new Mat(size, CV_8UC3);
-    this->buffer = new uchar[this->img_buffer->total() * this->img_buffer->elemSize()]; // TODO : Maybe add a useless area to align the buffer
+    this->buffer = new uchar[this->img_buffer->total() * this->img_buffer->elemSize()];
     this->size = size;
 
     this->recvcounts = new int[comm_size];

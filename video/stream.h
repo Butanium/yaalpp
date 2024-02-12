@@ -11,18 +11,6 @@ struct BGR {
   unsigned char red;
 };
 
-// struct Stream {
-//   const char* filename;
-//   cv::VideoWriter* writer;
-//   cv::Size size;
-
-//   uchar* buffer;
-//   cv::Mat* img_buffer;
-
-//   size_t worker_img_size;
-//   MPI_Comm comm;
-// };
-
 class Stream {
   private:
     const char* filename;
