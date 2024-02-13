@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
 # for performance: add_compile_options(-O3 -march=native)
-add_compile_options(-fopenmp)
 # for debug: add_compile_options(-O0)
 
 # Test library
