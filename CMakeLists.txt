@@ -33,8 +33,11 @@ link_directories( ${OpenCV_LIB_DIR} )
 # OpenMPI
 find_package(MPI REQUIRED)
 
-add_executable(tests tests/test.cpp)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
+add_executable(tests tests/test.cpp
+  video/stream.cpp
+  video/stream.h
+)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 

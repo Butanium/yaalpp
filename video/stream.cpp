@@ -38,7 +38,7 @@ Stream::Stream(const char* filename, Size size, int workers_row, int workers_col
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &comm_size);
 
-  if (comm_size != workers_row * workers_col + 1) {
+  if (comm_size != 1 && comm_size != workers_row * workers_col + 1) {
     if (rank == 0) {
       cerr << "The number of workers is not equal to workers_row * workers_col" << endl;
     }
@@ -88,14 +88,13 @@ Stream::~Stream() {
 
 void Stream::append_frame(Mat* frame) {
   Mat resized;
-  resize(*frame, resized, this->size);
+  resize(*frame, resized, this->size, 0, 0, INTER_NEAREST);
 
   if (this->writer != nullptr) {
     this->writer->write(resized);
-    return;
+  } else {
+    MPI_Gatherv(resized.data, resized.total() * resized.elemSize(), MPI_UNSIGNED_CHAR, nullptr, nullptr, nullptr, MPI_UNSIGNED_CHAR, 0, this->comm);
   }
-
-  MPI_Gatherv(resized.data, resized.total() * resized.elemSize(), MPI_UNSIGNED_CHAR, nullptr, nullptr, nullptr, MPI_UNSIGNED_CHAR, 0, this->comm);
 }
 
 void Stream::append_frame(Tensor<float, 3> &frame) {
