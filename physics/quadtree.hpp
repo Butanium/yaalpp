@@ -67,6 +67,8 @@ public:
     // returns the closest point to v. Uses a breadth-first search
     std::optional<Vec2> closest(const Vec2& v);
 
+    std::optional<Vec2> closestIterative(const Vec2 &v);
+
     // Given a set of Yaals, insert them into the quadtree.
     void initialize(const std::vector<Yaal>& yaals);
 
