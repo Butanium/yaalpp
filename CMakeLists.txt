@@ -74,10 +74,6 @@ add_executable(yaalpp main.cpp
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
 
-add_executable(example examples/tensor_broadcast_mul.cpp)
-target_link_libraries(example PRIVATE Eigen3::Eigen)
-
-
 add_executable(example examples/tensor_broadcast_mul.cpp
         physics/circle.cpp
         physics/circle.hpp
