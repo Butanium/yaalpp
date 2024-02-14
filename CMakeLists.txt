@@ -43,10 +43,6 @@ add_executable(tests tests/test.cpp
         Constants.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
-        world.cpp
-        world.hpp
-        diffusion/badbadbad.cpp
-        diffusion/badbadbad.hpp
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
@@ -64,10 +60,6 @@ add_executable(yaalpp main.cpp
         Constants.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
-        world.cpp
-        world.hpp
-        diffusion/badbadbad.cpp
-        diffusion/badbadbad.hpp
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 find_package(OpenMP)
@@ -84,9 +76,5 @@ add_executable(example examples/tensor_broadcast_mul.cpp
         physics/rect.hpp
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
-        world.cpp
-        world.hpp
-        diffusion/badbadbad.cpp
-        diffusion/badbadbad.hpp
 )
 target_link_libraries(example PRIVATE Eigen3::Eigen)
