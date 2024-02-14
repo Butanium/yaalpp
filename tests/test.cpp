@@ -9,12 +9,17 @@
 #include <catch2/catch_get_random_seed.hpp>
 
 using Eigen::Tensor;
+using Eigen::array;
+using Eigen::Index;
 
 template<int N>
 bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
     Tensor<bool, 0> res = ((a - b).abs() < Constants::EPSILON).all();
     return res(0);
 }
+
+/// Given a tensor generate an artificial slice which include the whole tensor
+#define fake_slice(t) t.slice(array<Index, 3>{0, 0, 0}, array<Index, 3>{t.dimension(0), t.dimension(1), t.dimension(2)})
 
 TEST_CASE("Yaal eval") {
     SECTION("eval random yaals") {
@@ -23,7 +28,7 @@ TEST_CASE("Yaal eval") {
             int view_size = yaal.genome.field_of_view * 2 + yaal.genome.size;
             Tensor<float, 3> input_view(view_size, view_size, 3);
             input_view.setRandom();
-            yaal.update(input_view);
+            yaal.update(fake_slice(input_view));
         }
     }SECTION("Direction Matrix") {
         Tensor<float, 3> t(2, 2, 2);
@@ -46,38 +51,39 @@ TEST_CASE("Yaal eval") {
         Yaal yaal = Yaal::random(3);
         auto mlp = yaal.genome.brain;
         mlp.direction_weights = direction_weights;
-        Tensor<float, 3> input_view(5, 5, 3);
-        input_view.setZero();
+        Tensor<float, 3> input_view_t(5, 5, 3);
+        input_view_t.setZero();
+        auto input_view = fake_slice(input_view_t);
         // Add a fake attraction
-        input_view(0, 2, 1) = 1;
+        input_view_t(0, 2, 1) = 1;
         auto direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isMuchSmallerThan(Constants::EPSILON));
         // Add a real attraction to the top
-        input_view(0, 2, 0) = 1;
+        input_view_t(0, 2, 0) = 1;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox(Vec2(0, -1)));
         // Add a real attraction to the bottom
-        input_view(4, 2, 0) = 1;
+        input_view_t(4, 2, 0) = 1;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isMuchSmallerThan(Constants::EPSILON));
         // Add a real attraction to the left
-        input_view(2, 0, 0) = 1;
+        input_view_t(2, 0, 0) = 1;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox(Vec2(-1, 0)));
         // Increase the value of the top attraction
-        input_view(0, 2, 0) = 2;
+        input_view_t(0, 2, 0) = 2;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox(Vec2(-1, -1).normalized()));
         // Increase the value of the left attraction
-        input_view(2, 0, 0) = 2;
+        input_view_t(2, 0, 0) = 2;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox(Vec2(-2, -1).normalized()));
-        input_view.setZero();
-        input_view(0, 0, 0) = 1;
+        input_view_t.setZero();
+        input_view_t(0, 0, 0) = 1;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox(Vec2(-1, -1).normalized()));
         // Add a repulsion to the top
-        input_view(0, 2, 0) = -1;
+        input_view_t(0, 2, 0) = -1;
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox((Vec2(-1, -1).normalized() + Vec2(0, 1)).normalized()));
     }

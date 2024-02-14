@@ -39,9 +39,11 @@ Vec2i Environment::pos_to_index(const Vec2 &pos) {
 
 auto Environment::get_view(const Yaal &yaal) {
     auto view_offsets = array<Index, 3>();
-    Vec2i top_left = pos_to_index(yaal.position - Vec2((float) yaal.genome.size / 2.f, (float) yaal.genome.size / 2.f));
-    view_offsets[1] = top_left.x(); // [1] because the first dimension is the height
-    view_offsets[0] = top_left.y(); // [0] because the second dimension is the width
+    Vec2i view_top_left = pos_to_index(
+            yaal.position - Vec2((float) yaal.genome.size / 2.f, (float) yaal.genome.size / 2.f)
+    ) -  Vec2i(yaal.genome.field_of_view, yaal.genome.field_of_view);
+    view_offsets[1] = view_top_left.x(); // [1] because the first dimension is the height
+    view_offsets[0] = view_top_left.y(); // [0] because the second dimension is the width
     view_offsets[2] = 0;
     auto view_dims = array<Index, 3>{(Index) 2 * yaal.genome.field_of_view + yaal.genome.size,
                                      (Index) 2 * yaal.genome.field_of_view + yaal.genome.size,
@@ -55,8 +57,7 @@ auto Environment::get_view(const Yaal &yaal) {
 void Environment::add_to_map(Yaal yaal) {
     Vec2i pos = pos_to_index(yaal.position);
     array<Index, 3> offsets = {pos.y(), pos.x(), 0};
-    array<Index, 3> body_dims = {(Index) yaal.genome.size, (Index) yaal.genome.size, (Index) channels};
-    map.slice(offsets, body_dims) += yaal.genome.body;
+    map.slice(offsets, yaal.genome.body.dimensions()) += yaal.genome.body;
 }
 
 void Environment::step() {

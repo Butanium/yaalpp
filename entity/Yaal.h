@@ -11,7 +11,6 @@
 using Eigen::Tensor;
 using Vec2 = Eigen::Vector2f;
 
-
 Tensor<float, 3> direction_matrix(int height, int width);
 
 /// The possible actions for a Yaal
@@ -126,8 +125,7 @@ public:
      * Update the Yaal's state position, direction, speed, etc.
      * @param input_view What the Yaal sees
      */
-    template<typename T>
-    void update(T  input_view);
+    void update(Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>>  input_view);
 
     void setRandomPosition(const Vec2 &min, const Vec2 &max);
 

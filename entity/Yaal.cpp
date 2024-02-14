@@ -33,9 +33,12 @@ Tensor<float, 3> direction_matrix(int height, int width) {
     }
     return directions / d_norms;
 }
+
 // Eigen::Tensor<float, 3, 0, long>
 //template<typename T> // Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>>
-Vec2 YaalMLP::get_direction(Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>>  input_view, int height, int width) const {
+Vec2 YaalMLP::get_direction(
+        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view,
+        int height, int width) const {
     // direction_weights : (C)
     // input_view : (2F+1, 2F+1, C)
     // direction : (1,1)
@@ -61,16 +64,18 @@ Vec2 YaalMLP::get_direction(Eigen::TensorSlicingOp<std::array<long, 3ul> const, 
     return direction;
 }
 
-//template<typename T>
-YaalDecision YaalMLP::evaluate(Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view, int height, int width) const {
+YaalDecision YaalMLP::evaluate(
+        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view,
+        int height, int width) const {
     return YaalDecision{
             .direction = get_direction(input_view, height, width),
             .speed_factor = 1.0f,
     };
 }
 
-template<typename T>
-void Yaal::update(T  input_view) {
+
+void Yaal::update(
+        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view) {
     auto decision = genome.brain.evaluate(input_view, genome.field_of_view * 2 + genome.size,
                                           genome.field_of_view * 2 + genome.size);
     position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
@@ -98,14 +103,14 @@ Tensor<float, 3> YaalGenome::generate_body(int size, std::array<float, 3> color)
     float center = (float) size / 2.f - 0.5f;
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
-            float x = (float) i - center;
-            float y = (float) j - center;
+            float dx = (float) i - center;
+            float dy = (float) j - center;
             auto slice = body.chip(i, 0).chip(j, 0);
-            if (x * x + y * y > size * size / 4.f) {
+            if (dx * dx + dy * dy > size * size / 4.f) {
                 slice.setZero();
             } else {
                 // Interpolate between *= 0.5 and *= 1
-//                slice *= 0.5f + 0.5f * (1 - std::sqrt(x * x + y * y) / (size / 2.f));
+                slice = slice * (0.5f + 0.5f * (1 - std::sqrt(dx * dx + dy * dy) / (size / 2.f)));
             }
         }
     }

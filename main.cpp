@@ -9,6 +9,7 @@
 #include <omp.h>
 #include <cstdio>
 #include "simulation/Environment.h"
+#include "Constants.h"
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
 decays = [0, 0, 0, 0.9, 0.5]
@@ -166,20 +167,12 @@ int main(int argc, char *argv[]) {
 #else
     std::cout << "OpenMP is disabled" << std::endl;
 #endif
-    Tensor<float, 2> map(5, 5);
-    map.setZero();
-    auto offset = Eigen::array<Eigen::Index, 2>{0, 0};
-    auto size =  Eigen::array<Eigen::Index, 2>{2, 2};
-    auto plus = map + map;
-    auto  slice_view = getSlice(map, offset, size);
-    test(slice_view);
-    std::cout << map << std::endl;
-    exit(0);
     auto env = Environment(width, height, num_channels);
     env.yaals.reserve(num_yaals);
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);
-        yaal.setRandomPosition(Vec2(0, 0), Vec2(width, height));
+        int ms = Constants::Yaal::MAX_SIZE;
+        yaal.setRandomPosition(Vec2(ms, ms), Vec2(width - ms, height - ms));
         env.yaals.push_back(yaal);
     }
     for (int t = 0; t < timesteps; t++) {
