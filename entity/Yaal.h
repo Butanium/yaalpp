@@ -11,12 +11,15 @@
 using Eigen::Tensor;
 using Vec2 = Eigen::Vector2f;
 
+
+Tensor<float, 3> direction_matrix(int height, int width);
+
 /// The possible actions for a Yaal
-enum struct YaalAction {
-    Attack,
-    Reproduce,
-    Nop,
-};
+//enum struct YaalAction {
+//    Attack,
+//    Reproduce,
+//    Nop,
+//};
 
 
 //enum struct ActionSampling {
@@ -27,7 +30,7 @@ enum struct YaalAction {
 
 /// The decision of a Yaal
 struct YaalDecision {
-    YaalAction action;
+//    YaalAction action;
     Vec2 direction;
     float speed_factor;
 };
@@ -36,7 +39,8 @@ struct YaalDecision {
  * A Multi-Layer Perceptron for Yaal's brain
  */
 class YaalMLP {
-    [[nodiscard]] Vec2 get_direction(const Tensor<float, 3> &input_view) const;
+//    template<typename T>
+    [[nodiscard]] Vec2 get_direction(Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>>  input_view, int height, int width) const;
 
 public:
     Tensor<float, 1> direction_weights;
@@ -55,7 +59,8 @@ public:
      * @param input_view The input view
      * @return The Yaal's decision
      */
-    [[nodiscard]] YaalDecision evaluate(const Tensor<float, 3> &input_view) const;
+//     template<typename T>
+    [[nodiscard]] YaalDecision evaluate(Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view, int height, int width) const;
 };
 
 /// The genome of a Yaal. Contains the brain and other fixed parameters
@@ -66,6 +71,10 @@ public:
     float max_speed;
     int field_of_view;
     int size;
+    Tensor<float, 3> body;
+    std::array<float, 3> color;
+
+    static Tensor<float, 3> generate_body(int size,  std::array<float, 3> color);
 
     static YaalGenome random(int num_channels);
 //    float max_size;
@@ -117,7 +126,8 @@ public:
      * Update the Yaal's state position, direction, speed, etc.
      * @param input_view What the Yaal sees
      */
-    void update(const Tensor<float, 3> &input_view);
+    template<typename T>
+    void update(T  input_view);
 
     void setRandomPosition(const Vec2 &min, const Vec2 &max);
 

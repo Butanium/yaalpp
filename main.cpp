@@ -8,6 +8,7 @@
 #include "physics/rect.hpp"
 #include <omp.h>
 #include <cstdio>
+#include "simulation/Environment.h"
 /* Rough pseudo-code:
  * Tensor map = zeros({1000, 1000, 5});
 decays = [0, 0, 0, 0.9, 0.5]
@@ -133,24 +134,58 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     }
 }
 
+inline auto getSlice(Eigen::Tensor<float, 2> &a,
+                     Eigen::array<Eigen::Index, 2> &offset,
+                     Eigen::array<Eigen::Index, 2> &extent) {
+    return a.slice(offset, extent);
+}
+
+void test(auto slice) {
+    slice.setConstant(1);
+}
 
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser program("yaalpp");
     parse_arguments(argc, argv, program);
     int height = program.get<int>("--height");
     int width = program.get<int>("--width");
-    int channels = program.get<int>("--channels");
+    int num_channels = program.get<int>("--channels");
     auto _decay_factors = program.get<std::vector<float>>("--decay-factors");
     Eigen::TensorMap<Tensor<float, 1>> decay_factors_1d(_decay_factors.data(), (long) _decay_factors.size());
-    Tensor<float, 3> map(height, width, channels);
-    map.setZero();
-    auto decay_factors = decay_factors_1d.reshape(array<int, 3>{1, 1, channels}).broadcast(
+    auto decay_factors = decay_factors_1d.reshape(array<int, 3>{1, 1, num_channels}).broadcast(
             array<int, 3>{height, width, 1}).eval();
-    map *= decay_factors;
-    // Print the 10*10*5 tensor
-    std::cout << map.slice(array<Eigen::Index, 3>{0, 0, 0}, array<Eigen::Index, 3>{10, 10, 5})
-              << std::endl;
+    auto diffusion_rate = program.get<std::vector<float>>("--diffusion-rate");
+    auto _max_values = program.get<std::vector<float>>("--max-values");
+    Eigen::TensorMap<Tensor<float, 1>> max_values_1d(_max_values.data(), (long) _max_values.size());
+    auto max_values = max_values_1d.reshape(array<int, 3>{1, 1, num_channels}).broadcast(
+            array<int, 3>{height, width, 1}).eval();
+    int num_yaals = program.get<int>("--num-yaals");
+    int timesteps = program.get<int>("--timesteps");
 #ifdef _OPENMP
     std::cout << "OpenMP is enabled" << std::endl;
+#else
+    std::cout << "OpenMP is disabled" << std::endl;
 #endif
+    Tensor<float, 2> map(5, 5);
+    map.setZero();
+    auto offset = Eigen::array<Eigen::Index, 2>{0, 0};
+    auto size =  Eigen::array<Eigen::Index, 2>{2, 2};
+    auto plus = map + map;
+    auto  slice_view = getSlice(map, offset, size);
+    test(slice_view);
+    std::cout << map << std::endl;
+    exit(0);
+    auto env = Environment(width, height, num_channels);
+    env.yaals.reserve(num_yaals);
+    for (int i = 0; i < num_yaals; i++) {
+        Yaal yaal = Yaal::random(num_channels);
+        yaal.setRandomPosition(Vec2(0, 0), Vec2(width, height));
+        env.yaals.push_back(yaal);
+    }
+    for (int t = 0; t < timesteps; t++) {
+        std::cout << "#";
+        env.step();
+    }
+
+
 }
