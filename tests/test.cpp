@@ -133,14 +133,47 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
 }
 
 
-TEST_CASE( "Output video multiple process", "[output_multiple]" ) {
+TEST_CASE( "Output video 5 processes", "[output_five]" ) {
+    int comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if(comm_size != 5) {
+      return;
+    }
+
+    Stream stream("output_5_mpi.mp4", cv::Size(1000, 1000), 2, 2, true, MPI_COMM_WORLD);
+    
+    int rank_id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank_id);
+
+    Eigen::Tensor<float, 3> map(2,2,3);
+    if(rank_id == 0) {
+      for (int i = 0; i < 16; i++) stream.append_frame(nullptr);
+    } else {
+      for (int i = 0; i < 16; i++) {
+        map.setZero();
+
+        if ((i/4)+1 == rank_id) {
+          int x = i%4;
+          map(x%2, x/2, 0) = 1;
+          map(x%2, x/2, 1) = 1;
+          map(x%2, x/2, 2) = 1;
+        }
+
+        stream.append_frame(map);
+      }
+    }
+
+    stream.end_stream();
+}
+
+TEST_CASE( "Output video 4 processes", "[output_four]" ) {
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     if(comm_size != 4) {
       return;
     }
 
-    Stream stream("output_multiple_mpi.mp4", cv::Size(1000, 1000), 2, 2, MPI_COMM_WORLD);
+    Stream stream("output_4_mpi.mp4", cv::Size(1000, 1000), 2, 2, false, MPI_COMM_WORLD);
     
     int rank_id;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank_id);
@@ -150,7 +183,7 @@ TEST_CASE( "Output video multiple process", "[output_multiple]" ) {
     for (int i = 0; i < 16; i++) {
       map.setZero();
 
-      if ((i/4)+1 == rank_id) {
+      if (i/4 == rank_id) {
         int x = i%4;
         map(x%2, x/2, 0) = 1;
         map(x%2, x/2, 1) = 1;
@@ -170,7 +203,7 @@ TEST_CASE( "Output video one process", "[output_single]" ) {
       return;
     }
 
-    Stream stream("output_single_mpi.mp4", cv::Size(1000, 1000), 1, 1, MPI_COMM_WORLD);
+    Stream stream("output_single_mpi.mp4", cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
     Eigen::Tensor<float, 3> map(3,3,3);
 
     for (int i = 0; i < 10; i++) {

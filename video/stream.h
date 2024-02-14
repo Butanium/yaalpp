@@ -23,7 +23,11 @@ class Stream {
     uchar* buffer;
     cv::Mat* img_buffer;
 
+    int* recvcounts;
+    int* displs;
+
     int comm_size;
+    bool z_only_writer;
     MPI_Comm comm;
 
   public:
@@ -34,9 +38,10 @@ class Stream {
      * @param size The size of the video final video.
      * @param workers_row The number of workers per row.
      * @param workers_col The number of workers per column.
+     * @param z_only_writer If true, the rank is 0 is only the disk writer. If false, the rank 0 is a worker and the disk writer.
      * @param comm The MPI communicator : rank 0 is the disk writer, the other ranks are the workers which call append_frame.
      */
-    Stream(const char* filename, cv::Size size, int workers_row, int workers_col, MPI_Comm comm);
+    Stream(const char* filename, cv::Size size, int workers_row, int workers_col, bool z_only_writer, MPI_Comm comm);
 
     /**
      * Destroy a video stream.
@@ -45,7 +50,7 @@ class Stream {
 
     /**
      * Append a frame to the video stream.
-     * If the rank is 0, the frame is written to the disk.
+     * If the rank is 0, the frame is written to the disk. If z_only_writer is true, the frame isn't taken into account.
      * If the rank is not 0, the frame is sent to the rank 0.
      * @param frame The frame to append.
      */
