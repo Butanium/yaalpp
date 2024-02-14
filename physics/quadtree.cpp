@@ -180,52 +180,6 @@ std::optional<Vec2> QuadTree::closest(const Vec2 &v) {
     return best;
 }
 
-// Non recursive version of closest, using a stack
-std::optional<Vec2> QuadTree::closestIterative(const Vec2 &v) {
-    std::optional<Vec2> best;
-    float bestDist = -1;
-    std::vector<QuadTree *> ordered_children;
-    ordered_children.reserve(4);
-    std::vector<QuadTree *> stack;
-    stack.push_back(this);
-    while (!stack.empty()) {
-        QuadTree *current = stack.back();
-        stack.pop_back();
-        ordered_children.clear();
-        if (current->subdivided) {
-            for (QuadTree *child: current->children) {
-                ordered_children.push_back(child);
-            }
-            std::sort(ordered_children.begin(), ordered_children.end(),
-                      [v](QuadTree *a, QuadTree *b) {
-                          Vec2 proj_a = a->rect.project(v);
-                          Vec2 proj_b = b->rect.project(v);
-                          // The ordre is flipped because we will append this to the stack and want to pop first the closest.
-                          return (proj_a - v).squaredNorm() > (proj_b - v).squaredNorm();
-                      });
-            for (QuadTree *child: ordered_children) {
-                Vec2 proj = child->rect.project(v);
-                float dist = (proj - v).squaredNorm();
-                if (dist < bestDist || bestDist < 0) {
-                    stack.push_back(child);
-                }
-            }
-        } else {
-            for (const Vec2 &p: current->points) {
-                float dist = (p - v).squaredNorm();
-                if (dist == 0)
-                    continue;
-
-                if (dist < bestDist || bestDist < 0) {
-                    bestDist = dist;
-                    best = p;
-                }
-            }
-        }
-    }
-    return best;
-}
-
 void QuadTree::initialize(const std::vector<Yaal> &yaals) {
     /**
      * Lock mutex of the quadtree when accessing it.
