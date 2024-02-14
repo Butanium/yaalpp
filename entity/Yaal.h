@@ -66,6 +66,7 @@ public:
     float max_speed;
     int field_of_view;
     int size;
+
     static YaalGenome random(int num_channels);
 //    float max_size;
 //    float init_size;
@@ -93,7 +94,7 @@ public:
      * @param position The initial position
      * @param genome The genome
      */
-    Yaal(Vec2&& position, YaalGenome&& genome);
+    Yaal(Vec2 &&position, YaalGenome &&genome);
 
     Yaal(const Vec2 &position, const YaalGenome &genome);
 

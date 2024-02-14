@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include "../Yaal.h"
+#include "../entity/Yaal.h"
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <random>

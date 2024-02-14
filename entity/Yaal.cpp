@@ -6,7 +6,7 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <utility>
-#include "Constants.h"
+#include "../Constants.h"
 
 
 using Eigen::Tensor;
@@ -83,7 +83,7 @@ void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
 
-Yaal::Yaal(Vec2&& position, YaalGenome&& genome) : position(std::move(position)), genome(std::move(genome)) {}
+Yaal::Yaal(Vec2 &&position, YaalGenome &&genome) : position(std::move(position)), genome(std::move(genome)) {}
 
 Yaal::Yaal(const Vec2 &position, const YaalGenome &genome) : position(position), genome(genome) {}
 

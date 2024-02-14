@@ -26,20 +26,21 @@ add_compile_definitions(EIGEN_DONT_PARALLELIZE)
 
 # Argument parser library
 FetchContent_Declare(
-    argparse
-    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+        argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse.git
 )
 FetchContent_MakeAvailable(argparse)
 
 add_executable(tests tests/test.cpp
+        physics/circle.cpp
         physics/circle.cpp
         physics/circle.hpp
         physics/quadtree.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
-        Yaal.h
-        Yaal.cpp
+        entity/Yaal.h
+        entity/Yaal.cpp
         Constants.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
@@ -55,8 +56,8 @@ add_executable(yaalpp main.cpp
         physics/quadtree.hpp
         physics/rect.cpp
         physics/rect.hpp
-        Yaal.cpp
-        Yaal.h
+        entity/Yaal.cpp
+        entity/Yaal.h
         Constants.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
