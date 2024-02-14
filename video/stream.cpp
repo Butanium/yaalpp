@@ -80,6 +80,8 @@ void Stream::append_frame(Mat* frame) {
   MPI_Gather(resized.data, resized.total() * resized.elemSize(), MPI_UNSIGNED_CHAR, this->buffer, resized.total() * resized.elemSize(), MPI_UNSIGNED_CHAR, 0, this->comm);
 
   if (this->writer != nullptr) {
+
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < comm_size; i++) {
       Mat worker_frame(this->worker_size, CV_8UC3, this->buffer + (i * resized.total() * resized.elemSize()));
       Rect worker_rect( (i % this->workers_row) * this->worker_size.width, (i / this->workers_row) * this->worker_size.height, this->worker_size.width, this->worker_size.height);
