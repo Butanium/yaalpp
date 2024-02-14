@@ -1,16 +1,26 @@
 #include "separablefilter.hpp"
 #include <cmath>
-#include <omp.h>
 
 Tensor<float, 1> GaussianFilter(int size, float sigma) {
     Tensor<float, 1> filter(size);
     int center = size / 2;
-    float norm = 1 / (sqrt(2 * (float) M_PI) * sigma);
-    for (int i = 0; i < size; i++)
-    {
-        filter(i) = (float) exp(-pow((float) (i - center) / sigma, 2) / 2) / norm;
+    if (sigma == 0) {
+        filter.setZero();
+        filter(center) = 1;
+        return filter;
+    } else {
+        // float norm = 1 / (sqrt(2 * (float) M_PI) * sigma);
+        float sum = 0;
+        for (int i = 0; i < size; i++) {
+            float value = (float) exp(-pow((float) (i - center) / sigma, 2) / 2);
+            filter(i) = value;
+            sum += value;
+        }
+        for (int i = 0; i < size; i++) {
+            filter(i) /= sum;
+        }
+        return filter;
     }
-    return filter;
 }
 
 SeparableFilter::SeparableFilter(int filter_size, int nb_channels) :
@@ -86,12 +96,7 @@ void SeparableFilter::initialize_buffer(int start_c, int start_i, int start_j, c
 }
 
 void SeparableFilter::apply(const Tensor<float, 3> &input, Tensor<float, 3> &output) {
-    // TODO : is the input size c h w or w h c ? RESOLVED : h w c (y x c)
     // TODO : offset (for the borders when using MPI). Just start and end the loops at +- border_size
-    // TODO : is the order really significant ? With the "correct" order, the values should be most of the time much closer in the processor
-    //        cache or even registers, so it should be much faster. (note : previous order was for i j c)
-    // TODO : OpenMP parallel on row or col, not on channels. Try on channel, but parallelization should be much weaker.
-    //        Try static and dynamic scheduling.
 
     int width = input.dimension(0);
     int height = input.dimension(1);
@@ -142,9 +147,6 @@ void SeparableFilter::apply(const Tensor<float, 3> &input, Tensor<float, 3> &out
 }
 
 void SeparableFilter::apply_inplace(Tensor<float, 3> &input) {
-    // TODO's : same as apply
-    // TODO : is it faster if we store the whole window filter_size in the buffer instead of only half, to avoid the if and only access to one array ?
-
     int width = input.dimension(0);
     int height = input.dimension(1);
     int channels = input.dimension(2);
@@ -152,14 +154,12 @@ void SeparableFilter::apply_inplace(Tensor<float, 3> &input) {
 
     int start_c = skip_color_channels ? 3 : 0;
 
-    // The buffer is used to cyclically store the erased values so that the next step can still use them
-    Tensor<float, 1> buffer(half_filter_size);
-
     for (int c = start_c; c < channels; c++) {
-#pragma omp parallel for default(none) shared(input, row_filters, col_filters, half_filter_size, width, height, c, filter_size) private(buffer) schedule(static)
+#pragma omp parallel for default(none) shared(input, row_filters, col_filters, half_filter_size, width, height, c, filter_size) schedule(static)
         // 1-D convolution with the row filters for channel c
         for (int j = 0; j < height; j++) {
             // initialise the buffer with the first values of the row, depending on the border condition
+            Tensor<float, 1> buffer(filter_size);
             initialize_buffer(c, 0, j, input, buffer, true, true);
 
             // process row j of channel c
@@ -181,10 +181,11 @@ void SeparableFilter::apply_inplace(Tensor<float, 3> &input) {
                 input(i, j, c) = sum;
             }
         }
-#pragma omp parallel for default(none) shared(input, row_filters, col_filters, half_filter_size, width, height, c, filter_size) private(buffer) schedule(static)
+#pragma omp parallel for default(none) shared(input, row_filters, col_filters, half_filter_size, width, height, c, filter_size) schedule(static)
         // 1-D convolution with the column filters for channel c
         for (int i = 0; i < width; i++) {
             // initialise the buffer with the first values of the column
+            Tensor<float, 1> buffer(half_filter_size);
             initialize_buffer(c, i, 0, input, buffer, false, true);
 
             // process column i of channel c

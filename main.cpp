@@ -6,6 +6,8 @@
 
 #include "physics/quadtree.hpp"
 #include "physics/rect.hpp"
+#include "diffusion/separablefilter.hpp"
+#include "diffusion/badbadbad.hpp"
 #include <omp.h>
 #include <cstdio>
 /* Rough pseudo-code:
@@ -169,5 +171,69 @@ int main(int argc, char *argv[]) {
     free(points);
     delete[] closests;
     delete[] closests2;
+
+    /* test diffusion
+     * */
+
+    float t9 = omp_get_wtime();
+
+    int h = 1080;
+    int w = 1920;
+    int c = 7;
+    int filter_size = 3;
+
+    SeparableFilter filter(filter_size, c);
+
+    Tensor<float, 3> input(h, w, c);
+    input.setRandom();
+    float t10 = omp_get_wtime();
+    std::cout << "Map creation took: " << t10 - t9 << " seconds" << std::endl;
+
+    float t11 = omp_get_wtime();
+    Tensor<float, 3> output(h, w, c);
+    filter.apply(input, output);
+    float t12 = omp_get_wtime();
+    std::cout << "Diffusion took: " << t12 - t11 << " seconds" << std::endl;
+
+    float t15 = omp_get_wtime();
+    float diffusion_rates[c];
+    for (int i = 0; i < c; i++) {
+        diffusion_rates[i] = 1;
+    }
+    diffuse_pheromones(input, diffusion_rates, output);
+    float t16 = omp_get_wtime();
+    std::cout << "Diffusion naive took: " << t16 - t15 << " seconds" << std::endl;
+    std::cout << "Naive speedup: " << (t16 - t15) / (t12 - t11) << " times" << std::endl;
+
+    float t13 = omp_get_wtime();
+    filter.apply_inplace(input);
+    float t14 = omp_get_wtime();
+    std::cout << "Diffusion inplace took: " << t14 - t13 << " seconds" << std::endl;
+    std::cout << "Inplace speedup: " << (t12 - t11) / (t14 - t13) << " times" << std::endl;
+
+    /* correction of diffusion
+     * */
+    int minih = 4;
+    int miniw = 5;
+    int minic = 1;
+    int mini_filter_size = 5;
+
+    SeparableFilter mini_filter(mini_filter_size, minic);
+
+    Tensor<float, 3> mini_input(minih, miniw, minic);
+    mini_input.setZero();
+    mini_input(0, 0, 0) = 1;
+    mini_input(0, 1, 0) = 1;
+    mini_input(1, 0, 0) = 1;
+
+    std::cout << "Input: " << std::endl << mini_input.reshape(array<int, 2>{minih, miniw * minic}) << std::endl;
+
+    Tensor<float, 3> mini_output(minih, miniw, minic);
+    filter.apply(mini_input, mini_output);
+    std::cout << "Output: " << std::endl << mini_output.reshape(array<int, 2>{minih, miniw * minic}) << std::endl;
+
+    filter.apply_inplace(mini_input);
+    std::cout << "Inplace: " << std::endl << mini_input.reshape(array<int, 2>{minih, miniw * minic}) << std::endl;
+
     return 0;
 }
