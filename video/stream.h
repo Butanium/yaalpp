@@ -23,11 +23,7 @@ class Stream {
     uchar* buffer;
     cv::Mat* img_buffer;
 
-    int* recvcounts;
-    int* displs;
-
-
-    size_t worker_img_size;
+    int comm_size;
     MPI_Comm comm;
 
   public:
@@ -48,7 +44,9 @@ class Stream {
     ~Stream();
 
     /**
-     * Append a frame to the video stream (write the frame to the disk).
+     * Append a frame to the video stream.
+     * If the rank is 0, the frame is written to the disk.
+     * If the rank is not 0, the frame is sent to the rank 0.
      * @param frame The frame to append.
      */
     void append_frame(cv::Mat* frame);
@@ -59,11 +57,6 @@ class Stream {
      */
     void append_frame(Eigen::Tensor<float, 3> &frame);
 
-
-    /**
-     * Write a frame to the video stream. Used only by the disk writer in a multi-node setup, useless otherwise.
-     */
-    void write_frame();
 
     /**
      * End the video stream.

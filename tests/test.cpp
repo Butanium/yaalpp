@@ -136,7 +136,7 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
 TEST_CASE( "Output video multiple process", "[output_multiple]" ) {
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-    if(comm_size != 5) {
+    if(comm_size != 4) {
       return;
     }
 
@@ -144,24 +144,22 @@ TEST_CASE( "Output video multiple process", "[output_multiple]" ) {
     
     int rank_id;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank_id);
-    if(rank_id == 0) {
-      for (int i = 0; i < 16; i++) stream.write_frame();
-    } else {
-      Eigen::Tensor<float, 3> map(2,2,3);
 
-      for (int i = 0; i < 16; i++) {
-        map.setZero();
+    Eigen::Tensor<float, 3> map(2,2,3);
 
-        if ((i/4)+1 == rank_id) {
-          int x = i%4;
-          map(x%2, x/2, 0) = 1;
-          map(x%2, x/2, 1) = 1;
-          map(x%2, x/2, 2) = 1;
-        }
+    for (int i = 0; i < 16; i++) {
+      map.setZero();
 
-        stream.append_frame(map);
+      if ((i/4)+1 == rank_id) {
+        int x = i%4;
+        map(x%2, x/2, 0) = 1;
+        map(x%2, x/2, 1) = 1;
+        map(x%2, x/2, 2) = 1;
       }
+
+      stream.append_frame(map);
     }
+
     stream.end_stream();
 }
 
