@@ -6,8 +6,6 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <mpi.h>
 
-#define FPS 2
-
 using namespace std;
 using namespace cv;
 using Eigen::Tensor;
@@ -33,7 +31,7 @@ Mat* eigen2cv(Tensor<float, 3> &tensor) {
   return image;
 }
 
-Stream::Stream(const char* filename, Size size, int workers_row, int workers_col, bool z_only_writer, MPI_Comm comm)
+Stream::Stream(const char* filename, int fps, Size size, int workers_row, int workers_col, bool z_only_writer, MPI_Comm comm)
     : filename(filename), size(size), workers_row(workers_row), workers_col(workers_col), z_only_writer(z_only_writer), comm(comm) {
   int rank, comm_size;
   MPI_Comm_rank(comm, &rank);
@@ -79,7 +77,7 @@ Stream::Stream(const char* filename, Size size, int workers_row, int workers_col
 
     int codec = VideoWriter::fourcc('a', 'v', 'c', '1');
 
-    this->writer->open(filename, codec, FPS, size, true);
+    this->writer->open(filename, codec, fps, size, true);
   } else { // This is a worker
     this->writer = nullptr;
     this->img_buffer = nullptr;
@@ -103,8 +101,6 @@ void Stream::append_frame(Mat* frame) {
 
   if (this->writer == nullptr || !this->z_only_writer) {
     resize(*frame, resized, this->worker_size, 0, 0, INTER_NEAREST);
-  // } else {
-  //   resized = Mat(0, 0, CV_8UC3);
   }
 
   MPI_Gatherv(resized.data, resized.total() * resized.elemSize(), MPI_UNSIGNED_CHAR, this->buffer, this->recvcounts, this->displs, MPI_UNSIGNED_CHAR, 0, this->comm);
