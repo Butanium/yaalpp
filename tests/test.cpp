@@ -140,7 +140,7 @@ TEST_CASE( "Output video 5 processes", "[output_five]" ) {
       return;
     }
 
-    Stream stream("output_5_mpi.mp4", cv::Size(1000, 1000), 2, 2, true, MPI_COMM_WORLD);
+    Stream stream("output_5_mpi.mp4", 2, cv::Size(1000, 1000), 2, 2, true, MPI_COMM_WORLD);
     
     int rank_id;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank_id);
@@ -173,7 +173,7 @@ TEST_CASE( "Output video 4 processes", "[output_four]" ) {
       return;
     }
 
-    Stream stream("output_4_mpi.mp4", cv::Size(1000, 1000), 2, 2, false, MPI_COMM_WORLD);
+    Stream stream("output_4_mpi.mp4", 2, cv::Size(1000, 1000), 2, 2, false, MPI_COMM_WORLD);
     
     int rank_id;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank_id);
@@ -203,7 +203,7 @@ TEST_CASE( "Output video one process", "[output_single]" ) {
       return;
     }
 
-    Stream stream("output_single_mpi.mp4", cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+    Stream stream("output_single_mpi.mp4", 2, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
     Eigen::Tensor<float, 3> map(3,3,3);
 
     for (int i = 0; i < 10; i++) {
