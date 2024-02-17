@@ -34,53 +34,6 @@ Tensor<float, 3> direction_matrix(int height, int width) {
     return directions / d_norms;
 }
 
-// Eigen::Tensor<float, 3, 0, long>
-//template<typename T> // Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>>
-Vec2 YaalMLP::get_direction(
-        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view,
-        int height, int width) const {
-    // direction_weights : (C)
-    // input_view : (2F+1, 2F+1, C)
-    // direction : (1,1)
-    // Matrix product between each "pixel" of the view and the weights
-    // Result is a (2F+1, 2F+1) weight map
-    // Then compute the average direction weighted by the weight map
-    Eigen::array<Eigen::IndexPair<int>, 1> product_dims = {Eigen::IndexPair<int>(2, 0)};
-    Tensor<float, 3> weight_map = input_view.contract(direction_weights, product_dims)
-            .reshape(array<Eigen::Index, 3>{height, width, 1})
-            .broadcast(array<Eigen::Index, 3>{1, 1, 2});
-    // Create D: (2F+1, 2F+1, 2). D_ij is the direction from the F,F pixel to the i,j pixel
-    // Init with the same height and width as the input view
-    auto directions = direction_matrix(height, width);
-    directions *= weight_map;
-    Tensor<float, 0> x = directions.chip(0, 2).mean();
-    Tensor<float, 0> y = directions.chip(1, 2).mean();
-    Vec2 direction = {x(0), y(0)};
-    auto norm = direction.norm();
-    if (norm < Constants::EPSILON) {
-        return Vec2::Zero();
-    }
-    direction.normalize();
-    return direction;
-}
-
-YaalDecision YaalMLP::evaluate(
-        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view,
-        int height, int width) const {
-    return YaalDecision{
-            .direction = get_direction(input_view, height, width),
-            .speed_factor = 1.0f,
-    };
-}
-
-
-void Yaal::update(
-        Eigen::TensorSlicingOp<std::array<long, 3ul> const, std::array<long, 3ul> const, Eigen::Tensor<float, 3, 0, long>> input_view) {
-    auto decision = genome.brain.evaluate(input_view, genome.field_of_view * 2 + genome.size,
-                                          genome.field_of_view * 2 + genome.size);
-    position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
-}
-
 void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
@@ -151,4 +104,8 @@ void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
 
 Yaal Yaal::random(int num_channels) {
     return random(num_channels, Vec2::Zero());
+}
+
+Vec2 Yaal::top_left_position() const {
+    return position - Vec2((float) genome.size / 2.f, (float) genome.size / 2.f);
 }

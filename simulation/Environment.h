@@ -8,6 +8,7 @@
 #include "../entity/Yaal.h"
 
 using Vec2i = Eigen::Vector2i;
+using Eigen::Index;
 
 
 class Environment {
@@ -31,7 +32,17 @@ public:
     Environment(Tensor<float, 3> &&map, int offset_left, int offset_right, int offset_top, int offset_bottom,
                 Vec2i top_left_position);
 
-    auto get_view(const Yaal &yaal);
+    auto get_view(const Yaal &yaal) {
+        auto view_offsets = array<Index, 3>();
+        Vec2i view_top_left =
+                pos_to_index(yaal.top_left_position()) - Vec2i(yaal.genome.field_of_view, yaal.genome.field_of_view);
+        view_offsets[1] = view_top_left.x(); // [1] because the first dimension is the height
+        view_offsets[0] = view_top_left.y(); // [0] because the second dimension is the width
+        view_offsets[2] = 0;
+        auto view_dims = array<Index, 3>{(Index) 2 * yaal.genome.field_of_view + yaal.genome.size,
+                                         (Index) 2 * yaal.genome.field_of_view + yaal.genome.size, (Index) channels};
+        return map.slice(view_offsets, view_dims);
+    }
 
     /// Add the yaal to the environment
     void add_to_map(Yaal yaal);
