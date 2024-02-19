@@ -10,32 +10,36 @@ using Constants::Yaal::MAX_FIELD_OF_VIEW;
 using Eigen::array;
 using Eigen::Index;
 
-Environment::Environment(int width, int height, int channels) : width(width), height(height), channels(channels),
-                                                                offset_left(MAX_FIELD_OF_VIEW),
-                                                                offset_right(MAX_FIELD_OF_VIEW),
-                                                                offset_top(MAX_FIELD_OF_VIEW),
-                                                                offset_bottom(MAX_FIELD_OF_VIEW),
-                                                                top_left_position(Vec2i::Zero()) {
-    map = Tensor<float, 3>(width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, channels);
+Environment::Environment(int width, int height, int channels, std::vector<float> decay_factors_v,
+                         std::vector<float> max_values_v) : width(width), height(height), channels(channels),
+                                                            offset_left(MAX_FIELD_OF_VIEW),
+                                                            offset_right(MAX_FIELD_OF_VIEW),
+                                                            offset_top(MAX_FIELD_OF_VIEW),
+                                                            offset_bottom(MAX_FIELD_OF_VIEW),
+                                                            top_left_position(Vec2i::Zero()), decay_factors(
+                Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
+                                                            max_values(Eigen::TensorMap<Tensor<float, 3>>(
+                                                                    max_values_v.data(),
+                                                                    array<Index, 3>{1, 1, channels})),
+                                                            map(Tensor<float, 3>(width + 2 * MAX_FIELD_OF_VIEW,
+                                                                                 height + 2 * MAX_FIELD_OF_VIEW,
+                                                                                 channels)) {
     map.setZero();
 }
 
-Environment::Environment(Tensor<float, 3> &&map, int offset_left, int offset_right, int offset_top,
-                         int offset_bottom, Vec2i top_left_position) : map(std::move(map)),
-                                                                       width((int) map.dimension(0)),
-                                                                       height((int) map.dimension(1)),
-                                                                       channels((int) map.dimension(2)),
-                                                                       offset_left(offset_left),
-                                                                       offset_right(offset_right),
-                                                                       offset_top(offset_top),
-                                                                       offset_bottom(offset_bottom),
-                                                                       top_left_position(top_left_position) {}
+Environment::Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors_v, std::vector<float> max_values_v,
+                         int offset_left, int offset_right, int offset_top, int offset_bottom, Vec2i top_left_position)
+        : map(std::move(map)), width((int) map.dimension(0)), height((int) map.dimension(1)),
+          channels((int) map.dimension(2)), offset_left(offset_left), offset_right(offset_right),
+          offset_top(offset_top), offset_bottom(offset_bottom), top_left_position(top_left_position),
+          decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
+          max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
+}
 
 
 Vec2i Environment::pos_to_index(const Vec2 &pos) {
     return (pos - top_left_position.cast<float>() + Vec2(offset_left, offset_top)).array().round().cast<int>();
 }
-
 
 
 void Environment::add_to_map(Yaal yaal) {
@@ -53,7 +57,9 @@ void Environment::step() {
     for (auto &yaal: yaals) {
         add_to_map(yaal);
     }
-
+    map *= decay_factors.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1});
+    map = map.cwiseMin(
+            max_values.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1}));
 }
 
 

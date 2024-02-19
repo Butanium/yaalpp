@@ -151,15 +151,9 @@ int main(int argc, char *argv[]) {
     int height = program.get<int>("--height");
     int width = program.get<int>("--width");
     int num_channels = program.get<int>("--channels");
-    auto _decay_factors = program.get<std::vector<float>>("--decay-factors");
-    Eigen::TensorMap<Tensor<float, 1>> decay_factors_1d(_decay_factors.data(), (long) _decay_factors.size());
-    auto decay_factors = decay_factors_1d.reshape(array<int, 3>{1, 1, num_channels}).broadcast(
-            array<int, 3>{height, width, 1}).eval();
+    auto decay_factors = program.get<std::vector<float>>("--decay-factors");
     auto diffusion_rate = program.get<std::vector<float>>("--diffusion-rate");
-    auto _max_values = program.get<std::vector<float>>("--max-values");
-    Eigen::TensorMap<Tensor<float, 1>> max_values_1d(_max_values.data(), (long) _max_values.size());
-    auto max_values = max_values_1d.reshape(array<int, 3>{1, 1, num_channels}).broadcast(
-            array<int, 3>{height, width, 1}).eval();
+    auto max_values = program.get<std::vector<float>>("--max-values");
     int num_yaals = program.get<int>("--num-yaals");
     int timesteps = program.get<int>("--timesteps");
 #ifdef _OPENMP
@@ -167,7 +161,7 @@ int main(int argc, char *argv[]) {
 #else
     std::cout << "OpenMP is disabled" << std::endl;
 #endif
-    auto env = Environment(width, height, num_channels);
+    auto env = Environment(width, height, num_channels, decay_factors, max_values);
     env.yaals.reserve(num_yaals);
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);

@@ -26,10 +26,12 @@ public:
     const int offset_bottom;
     const Vec2i top_left_position;
     std::vector<Yaal> yaals = {};
+    Eigen::TensorMap<Tensor<float, 3>> decay_factors;
+    Eigen::TensorMap<Tensor<float, 3>> max_values;
 
-    Environment(int width, int height, int channels);
+    Environment(int width, int height, int channels, std::vector<float> decay_factors_v, std::vector<float> max_values_v);
 
-    Environment(Tensor<float, 3> &&map, int offset_left, int offset_right, int offset_top, int offset_bottom,
+    Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors, std::vector<float> max_values, int offset_left, int offset_right, int offset_top, int offset_bottom,
                 Vec2i top_left_position);
 
     auto get_view(const Yaal &yaal) {
