@@ -24,11 +24,17 @@ Tensor<float, 1> GaussianFilter(int size, float sigma) {
 }
 
 SeparableFilter::SeparableFilter(int filter_size, int nb_channels) :
-SeparableFilter(filter_size, nb_channels, BORDER_CONDITION_CLAMP, false) {
+        SeparableFilter(filter_size, nb_channels, BORDER_CONDITION_CLAMP, false) {
 }
 
+SeparableFilter::SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels) :
+        SeparableFilter(filter_size, nb_channels, BORDER_CONDITION_CLAMP, skip_color_channels) {
+}
+
+
 SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels) :
-    filter_size(filter_size), nb_channels(nb_channels), border_condition(border_condition), skip_color_channels(skip_color_channels) {
+        filter_size(filter_size), nb_channels(nb_channels), border_condition(border_condition),
+        skip_color_channels(skip_color_channels) {
     // the three first channels are for color, and are therefore not subject to pheromone diffusion.
     row_filters = Tensor<float, 2>(nb_channels, filter_size);
     col_filters = Tensor<float, 2>(nb_channels, filter_size);
@@ -76,7 +82,8 @@ int SeparableFilter::get_border_index(int index, int min, int max) const {
     }
 }
 
-void SeparableFilter::initialize_buffer(int start_c, int start_i, int start_j, const Tensor<float, 3> &input, Tensor<float, 1> &buffer, bool row_or_col, bool half_window) {
+void SeparableFilter::initialize_buffer(int start_c, int start_i, int start_j, const Tensor<float, 3> &input,
+                                        Tensor<float, 1> &buffer, bool row_or_col, bool half_window) const {
     int buffer_size = buffer.dimension(0);
     int buffer_offset = half_window ? 0 : buffer_size / 2;
     for (int k = 0; k < buffer_size; k++) {
@@ -146,7 +153,7 @@ void SeparableFilter::apply(const Tensor<float, 3> &input, Tensor<float, 3> &out
     }
 }
 
-void SeparableFilter::apply_inplace(Tensor<float, 3> &input) {
+void SeparableFilter::apply_inplace(Tensor<float, 3> &input) const {
     int width = input.dimension(0);
     int height = input.dimension(1);
     int channels = input.dimension(2);

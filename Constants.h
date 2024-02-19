@@ -16,6 +16,9 @@ namespace Constants {
         static constexpr int MIN_SIZE = 10;
         static constexpr int MAX_SIZE = 10;
     }
+    namespace Environment {
+        static constexpr int FILTER_SIZE = 7;
+    }
 }
 
 #endif //YAALPP_CONSTANTS_H

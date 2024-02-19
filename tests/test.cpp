@@ -85,9 +85,9 @@ TEST_CASE("Yaal eval") {
         direction = mlp.evaluate(input_view, 5, 5).direction;
         REQUIRE(direction.isApprox((Vec2(-1, -1).normalized() + Vec2(0, 1)).normalized()));
     }
-//    SECTION("Random generator check")
 }
 
+// TODO: replace thread unsafe things in this test by or reduction
 void test_quadtree(int n_points, int n_threads, unsigned int seed) {
     std::mt19937 generator(seed);
     auto x_distr = std::uniform_real_distribution<float>(0, (float) 1);
@@ -112,7 +112,7 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
     #pragma omp parallel for default(none) shared(quadTree, points, closests, n_points, n_threads, errors) schedule(static) num_threads(n_threads)
         for (int i = 0; i < n_points; i++) {
             auto v = points[i];
-            std::optional<Vec2> closest = quadTree.closestIterative(v);
+            std::optional<Vec2> closest = quadTree.closest(v);
             if (closest.has_value()) {
                 closests[i] = closest.value();
             } else {

@@ -6,6 +6,7 @@
 #define YAALPP_ENVIRONMENT_H
 
 #include "../entity/Yaal.h"
+#include "../diffusion/separablefilter.hpp"
 
 using Vec2i = Eigen::Vector2i;
 using Eigen::Index;
@@ -17,22 +18,26 @@ class Environment {
 
 public:
     Tensor<float, 3> map;
-    const int width;
     const int height;
+    const int width;
+    const int global_height;
+    const int global_width;
     const int channels;
     const int offset_left;
     const int offset_right;
     const int offset_top;
     const int offset_bottom;
     const Vec2i top_left_position;
+    const SeparableFilter diffusion_filter;
     std::vector<Yaal> yaals = {};
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;
 
     Environment(int width, int height, int channels, std::vector<float> decay_factors_v, std::vector<float> max_values_v);
 
-    Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors, std::vector<float> max_values, int offset_left, int offset_right, int offset_top, int offset_bottom,
-                Vec2i top_left_position);
+    Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors, std::vector<float> max_values,
+                int offset_left, int offset_right, int offset_top, int offset_bottom,
+                Vec2i &&top_left_position, int global_height, int global_width);
 
     auto get_view(const Yaal &yaal) {
         auto view_offsets = array<Index, 3>();
