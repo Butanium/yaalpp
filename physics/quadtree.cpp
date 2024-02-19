@@ -187,7 +187,7 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
      * If it is a leaf (whether full or not), insert the Yaal and delock the mutex.
      */
     int nb_Yaals = yaals.size();
-#pragma omp parallel for schedule(static)//TODO : check if static or dynamic scheduling is better
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < nb_Yaals; i++) {
         insert(yaals[i].position);
     }
@@ -195,7 +195,7 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
 
 void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, Vec2 *closestPoints) {
     int nb_Yaals = (int) yaals.size();
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < nb_Yaals; i++) {
         std::optional<Vec2> closestPoint = closest(yaals[i].position);
         if (closestPoint.has_value()) {
