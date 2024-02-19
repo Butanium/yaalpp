@@ -40,8 +40,7 @@ Environment::Environment(Tensor<float, 3> &&map, std::vector<float> decay_factor
           decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
           max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})),
           diffusion_filter(SeparableFilter(FILTER_SIZE, (int) map.dimension(2), true)),
-          global_height(global_height), global_width(global_width)
-          {
+          global_height(global_height), global_width(global_width) {
 }
 
 
@@ -75,6 +74,3 @@ void Environment::step() {
     map = map.cwiseMin(
             max_values.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1}));
 }
-
-
-
