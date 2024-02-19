@@ -101,9 +101,9 @@ public:
     int field_of_view;
     int size;
     Tensor<float, 3> body;
-    std::array<float, 3> color;
+    std::vector<float> signature;
 
-    static Tensor<float, 3> generate_body(int size, std::array<float, 3> color);
+    static Tensor<float, 3> generate_body(int size, const std::vector<float> &signature);
 
     static YaalGenome random(int num_channels);
 //    float max_size;

@@ -46,12 +46,15 @@ Yaal::Yaal(const Vec2 &position, const YaalGenome &genome) : position(position),
 thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
 thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
 
-
-Tensor<float, 3> YaalGenome::generate_body(int size, std::array<float, 3> color) {
-    Tensor<float, 3> body(size, size, 4);
-    for (int c = 0; c < 3; c++)
-        body.chip(c, 2).setConstant(color[c]);
-    body.chip(3, 2).setConstant(1);
+/**
+ * Generate a body with a given signature
+ * @param size The size of the body
+ * @param signature The signature of the yaal (i.e. the color and smell)
+ */
+Tensor<float, 3> YaalGenome::generate_body(int size, const std::vector<float> &signature) {
+    Tensor<float, 3> body(size, size, (long) signature.size());
+    for (int c = 0; c < signature.size(); c++)
+        body.chip(c, 2).setConstant(signature[c]);
     // Apply circle mask
     float center = (float) size / 2.f - 0.5f;
     for (int i = 0; i < size; i++) {
@@ -76,10 +79,13 @@ YaalGenome YaalGenome::random(int num_channels) {
     auto fov_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_FIELD_OF_VIEW,
                                                       Constants::Yaal::MAX_FIELD_OF_VIEW);
     auto size_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_SIZE, Constants::Yaal::MAX_SIZE);
-    auto color_rng = std::uniform_real_distribution<float>(0, 1);
+    auto signature_rng = std::uniform_real_distribution<float>(0, 1);
     int size = size_rng(generator);
-    std::array<float, 3> color = {color_rng(generator), color_rng(generator), color_rng(generator)};
-    auto body = generate_body(size, color);
+    std::vector<float> signature =  std::vector<float>(num_channels);
+    for (int i = 0; i < num_channels; i++) {
+        signature[i] = signature_rng(generator);
+    }
+    auto body = generate_body(size, signature);
     return {
             .brain = YaalMLP{
                     .direction_weights = Tensor<float, 1>(num_channels).setRandom(),
@@ -88,7 +94,7 @@ YaalGenome YaalGenome::random(int num_channels) {
             .field_of_view = fov_rng(generator),
             .size = size,
             .body = body,
-            .color = color
+            .signature = signature
     };
 }
 

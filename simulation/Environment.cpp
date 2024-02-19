@@ -5,6 +5,7 @@
 #include <iostream>
 #include "Environment.h"
 #include "../Constants.h"
+#include "../physics/quadtree.hpp"
 
 using Constants::Yaal::MAX_FIELD_OF_VIEW;
 using Eigen::array;
@@ -54,10 +55,11 @@ void Environment::step() {
         auto view = get_view(yaal);
         yaal.update(view);
     }
+    QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)));
+    map *= decay_factors.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1});
     for (auto &yaal: yaals) {
         add_to_map(yaal);
     }
-    map *= decay_factors.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1});
     map = map.cwiseMin(
             max_values.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1}));
 }

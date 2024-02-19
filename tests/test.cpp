@@ -167,7 +167,7 @@ TEST_CASE("ENVIRONMENT") {
         auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
         Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays);
         Yaal yaal = Yaal::random(4);
-        yaal.position = Vec2(1,1) * Constants::Yaal::MAX_SIZE / 2;  // Center the Yaal
+        yaal.position = Vec2(1, 1) * Constants::Yaal::MAX_SIZE / 2;  // Center the Yaal
         env.add_to_map(yaal);
         Tensor<float, 3> map(2 * Constants::Yaal::MAX_FIELD_OF_VIEW + Constants::Yaal::MAX_SIZE,
                              2 * Constants::Yaal::MAX_FIELD_OF_VIEW + Constants::Yaal::MAX_SIZE, 4);
@@ -178,5 +178,17 @@ TEST_CASE("ENVIRONMENT") {
         yaal.genome.field_of_view = MAX_FIELD_OF_VIEW;
         Tensor<float, 3> view = env.get_view(yaal);
         REQUIRE(is_close(env.map, view));
+    }SECTION("Env steps") {
+        using Constants::Yaal::MAX_SIZE;
+        auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
+        Environment env(1000, 1000, 4, decays, decays);
+        for (int i = 0; i < 2000; i++) {
+            Yaal yaal = Yaal::random(4);
+            yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(1000 - MAX_SIZE, 1000 - MAX_SIZE));
+            env.yaals.push_back(yaal);
+        }
+        for (int i = 0; i < 10000; i++) {
+            env.step();
+        }
     }
 }
