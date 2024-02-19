@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.27)
 project(yaalpp)
 Include(FetchContent)
 # for performance: add_compile_options(-O3 -march=native)
-add_compile_options(-fopenmp -Wall -std=c++20)
+add_compile_options(-fopenmp -std=c++20)
+# add_compile_options(-Wall) for all warnings
 # for debug: add_compile_options(-O0)
 
 # Test library
@@ -43,6 +44,8 @@ add_executable(tests tests/test.cpp
         Constants.h
         simulation/Environment.cpp
         simulation/Environment.h
+        diffusion/separablefilter.hpp
+        diffusion/separablefilter.cpp
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
@@ -58,6 +61,8 @@ add_executable(yaalpp main.cpp
         entity/Yaal.cpp
         entity/Yaal.h
         Constants.h
+        diffusion/separablefilter.hpp
+        diffusion/separablefilter.cpp
         simulation/Environment.cpp
         simulation/Environment.h
 )

@@ -94,68 +94,80 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
     auto y_distr = std::uniform_real_distribution<float>(0, (float) 1);
 
     Rect rect(Vec2(0, 0), Vec2(1, 1));
-    QuadTree quadTree(std::move(rect), 4);
+    for (int max_capacity = 1; max_capacity < 8; max_capacity += 3) {
+        QuadTree quadTree(std::move(rect), max_capacity);
 
-    std::vector<Vec2> points;
-    points.reserve(n_points);
-    for (int i = 0; i < n_points; i++) {
-        points.emplace_back(x_distr(generator), y_distr(generator));
-    }
-#pragma omp parallel for default(none) shared(quadTree, points) schedule(static) num_threads(n_threads)
-    for (const Vec2 &v: points) {
-        quadTree.insert(v);
-    }
-
-    Vec2 *closests = new Vec2[n_points];
-#pragma omp parallel for default(none) shared(quadTree, points, closests, n_points) schedule(static) num_threads(n_threads)
-    for (int i = 0; i < n_points; i++) {
-        auto v = points[i];
-        std::optional<Vec2> closest = quadTree.closest(v);
-        REQUIRE(closest.has_value());
-        if (closest.has_value()) {
-            closests[i] = closest.value();
+        Vec2* points;
+        points = (Vec2*) malloc(n_points * sizeof(Vec2));
+        for (int i = 0; i < n_points; i++) {
+            points[i] = Vec2(x_distr(generator), y_distr(generator));
         }
-    }
+    #pragma omp parallel for default(none) shared(quadTree, points, n_points) schedule(static) num_threads(n_threads)
+        for (int i = 0; i < n_points; i++) {
+            quadTree.insert(points[i]);
+        }
 
-    std::vector<Vec2> trueClosests;
-    trueClosests.reserve(n_points);
-#pragma omp parallel for default(none) shared(points, trueClosests, n_points) schedule(static) num_threads(n_threads)
-    for (int i = 0; i < n_points; i++) {
-        float dist;
-        auto v = points[i];
-        float bestDist = -1;
-        Vec2 bestPoint;
-        for (const Vec2 &v2: points) {
-            dist = (v - v2).squaredNorm();
-            if ((dist < bestDist || bestDist < 0) && dist > 0) {
-                bestDist = dist;
-                bestPoint = v2;
+        Vec2 *closests = new Vec2[n_points];
+        int errors = 0;
+    #pragma omp parallel for default(none) shared(quadTree, points, closests, n_points, n_threads, errors) schedule(static) num_threads(n_threads)
+        for (int i = 0; i < n_points; i++) {
+            auto v = points[i];
+            std::optional<Vec2> closest = quadTree.closestIterative(v);
+            if (closest.has_value()) {
+                closests[i] = closest.value();
+            } else {
+                // Yes this is not thread safe, but who cares (Catch2 requires are not thread safe)
+                errors++;
             }
         }
-        REQUIRE(bestDist > 0);
-        if (bestDist > 0) {
-            trueClosests[i] = bestPoint;
-        }
-    }
+        REQUIRE(errors == 0);
 
-    for (int i = 0; i < n_points; i++) {
-        REQUIRE(closests[i] == trueClosests[i]);
+        int trueErrors = 0;
+        Vec2* trueClosests;
+        trueClosests = (Vec2*) malloc(n_points * sizeof(Vec2));
+    #pragma omp parallel for default(none) shared(points, trueClosests, n_points, n_threads, trueErrors) schedule(static) num_threads(n_threads)
+        for (int i = 0; i < n_points; i++) {
+            float dist;
+            auto v = points[i];
+            float bestDist = -1;
+            Vec2 bestPoint;
+            for (int j = 0; j < n_points; j++) {
+                auto v2 = points[j];
+                dist = (v - v2).squaredNorm();
+                if ((dist < bestDist || bestDist < 0) && dist > 0) {
+                    bestDist = dist;
+                    bestPoint = v2;
+                }
+            }
+            if (bestDist > 0) {
+                trueClosests[i] = bestPoint;
+            } else {
+                trueErrors++;
+            }
+        }
+        REQUIRE(trueErrors == 0);
+
+        for (int i = 0; i < n_points; i++) {
+            REQUIRE(closests[i] == trueClosests[i]);
+        }
+        free(closests);
+        free(trueClosests);
+        free(points);
     }
-    free(closests);
 }
 
 TEST_CASE("Checking validity of quadtree closest neighbor search :") {
 // Get seed from catch 2
     auto seed = Catch::getSeed();
-//    SECTION("1 thread") {
-//        test_quadtree(5000, 1, seed);
-//    }
-//    SECTION("2 threads") {
-//        test_quadtree(5000, 2, seed);
-//    }
-//    SECTION("3 threads") {
-//        test_quadtree(5000, 3, seed);
-//    }
+    SECTION("1 thread") {
+        test_quadtree(5000, 1, seed);
+    }
+    SECTION("2 threads") {
+        test_quadtree(5000, 2, seed);
+    }
+    SECTION("3 threads") {
+        test_quadtree(5000, 3, seed);
+    }
     SECTION("16 threads") {
         test_quadtree(5000, 16, seed);
     }
