@@ -164,7 +164,8 @@ TEST_CASE("Checking validity of quadtree closest neighbor search :") {
 TEST_CASE("ENVIRONMENT") {
     SECTION("Add to map") {
         using Constants::Yaal::MAX_FIELD_OF_VIEW;
-        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4);
+        auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
+        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays);
         Yaal yaal = Yaal::random(4);
         yaal.position = Vec2(1,1) * Constants::Yaal::MAX_SIZE / 2;  // Center the Yaal
         env.add_to_map(yaal);
