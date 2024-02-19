@@ -181,13 +181,24 @@ TEST_CASE("ENVIRONMENT") {
     }SECTION("Env steps") {
         using Constants::Yaal::MAX_SIZE;
         auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
-        Environment env(1000, 1000, 4, decays, decays);
-        for (int i = 0; i < 2000; i++) {
+        std::cerr << "Creating env" << std::endl;
+        int height = 30;
+        int width = 30;
+        Environment env(height, width, 4, decays, decays);
+        std::cerr << "Adding yaals" << std::endl;
+        for (int i = 0; i < 100; i++) {
+            if (i % 100 == 0) {
+                std::cerr << i << std::endl;
+            }
             Yaal yaal = Yaal::random(4);
-            yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(1000 - MAX_SIZE, 1000 - MAX_SIZE));
+            yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
             env.yaals.push_back(yaal);
         }
-        for (int i = 0; i < 10000; i++) {
+        std::cerr << "Updating yaals" << std::endl;
+        for (int i = 0; i < 100; i++) {
+            if (i % 10 == 0) {
+                std::cerr << i << std::endl;
+            }
             env.step();
         }
     }

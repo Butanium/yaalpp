@@ -193,7 +193,7 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
     }
 }
 
-void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, Vec2 *closestPoints) {
+void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints) {
     int nb_Yaals = (int) yaals.size();
 #pragma omp parallel for
     for (int i = 0; i < nb_Yaals; i++) {

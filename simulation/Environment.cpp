@@ -11,7 +11,7 @@ using Constants::Yaal::MAX_FIELD_OF_VIEW;
 using Eigen::array;
 using Eigen::Index;
 
-Environment::Environment(int width, int height, int channels, std::vector<float> decay_factors_v,
+Environment::Environment(int height, int width, int channels, std::vector<float> decay_factors_v,
                          std::vector<float> max_values_v) : width(width), height(height), channels(channels),
                                                             offset_left(MAX_FIELD_OF_VIEW),
                                                             offset_right(MAX_FIELD_OF_VIEW),
@@ -56,6 +56,10 @@ void Environment::step() {
         yaal.update(view);
     }
     QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)));
+    quadtree.initialize(yaals);
+    std::vector<Vec2> closests(yaals.size());
+    quadtree.get_all_closest(yaals, closests);
+    // TODO: Resolve collisions
     map *= decay_factors.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1});
     for (auto &yaal: yaals) {
         add_to_map(yaal);
