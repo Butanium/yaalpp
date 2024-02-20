@@ -97,19 +97,19 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
     for (int max_capacity = 1; max_capacity < 8; max_capacity += 3) {
         QuadTree quadTree(std::move(rect), max_capacity);
 
-        Vec2* points;
-        points = (Vec2*) malloc(n_points * sizeof(Vec2));
+        Vec2 *points;
+        points = (Vec2 *) malloc(n_points * sizeof(Vec2));
         for (int i = 0; i < n_points; i++) {
             points[i] = Vec2(x_distr(generator), y_distr(generator));
         }
-    #pragma omp parallel for default(none) shared(quadTree, points, n_points) schedule(static) num_threads(n_threads)
+#pragma omp parallel for default(none) shared(quadTree, points, n_points) schedule(static) num_threads(n_threads)
         for (int i = 0; i < n_points; i++) {
             quadTree.insert(points[i]);
         }
 
         Vec2 *closests = new Vec2[n_points];
         int errors = 0;
-    #pragma omp parallel for default(none) shared(quadTree, points, closests, n_points, n_threads, errors) schedule(static) num_threads(n_threads)
+#pragma omp parallel for default(none) shared(quadTree, points, closests, n_points, n_threads, errors) schedule(static) num_threads(n_threads)
         for (int i = 0; i < n_points; i++) {
             auto v = points[i];
             std::optional<Vec2> closest = quadTree.closest(v);
@@ -123,9 +123,9 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
         REQUIRE(errors == 0);
 
         int trueErrors = 0;
-        Vec2* trueClosests;
-        trueClosests = (Vec2*) malloc(n_points * sizeof(Vec2));
-    #pragma omp parallel for default(none) shared(points, trueClosests, n_points, n_threads, trueErrors) schedule(static) num_threads(n_threads)
+        Vec2 *trueClosests;
+        trueClosests = (Vec2 *) malloc(n_points * sizeof(Vec2));
+#pragma omp parallel for default(none) shared(points, trueClosests, n_points, n_threads, trueErrors) schedule(static) num_threads(n_threads)
         for (int i = 0; i < n_points; i++) {
             float dist;
             auto v = points[i];
@@ -161,14 +161,11 @@ TEST_CASE("Checking validity of quadtree closest neighbor search :") {
     auto seed = Catch::getSeed();
     SECTION("1 thread") {
         test_quadtree(5000, 1, seed);
-    }
-    SECTION("2 threads") {
+    }SECTION("2 threads") {
         test_quadtree(5000, 2, seed);
-    }
-    SECTION("3 threads") {
+    }SECTION("3 threads") {
         test_quadtree(5000, 3, seed);
-    }
-    SECTION("16 threads") {
+    }SECTION("16 threads") {
         test_quadtree(5000, 16, seed);
     }
 }
@@ -191,12 +188,13 @@ TEST_CASE("ENVIRONMENT") {
         Tensor<float, 3> view = env.get_view(yaal);
         REQUIRE(is_close(env.map, view));
     }SECTION("Env steps") {
+        // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
         auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
         std::cerr << "Creating env" << std::endl;
         int height = 30;
         int width = 30;
-        Environment env(height, width, 4, decays, decays);
+        Environment env(width, height, 4, decays, decays);
         std::cerr << "Adding yaals" << std::endl;
         for (int i = 0; i < 100; i++) {
             if (i % 100 == 0) {

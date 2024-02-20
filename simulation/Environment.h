@@ -14,7 +14,7 @@ using Eigen::Index;
 
 class Environment {
     /// Given a position in the environment, returns the index in the map tensor
-    Vec2i pos_to_index(const Vec2 &pos);
+    std::tuple<int, int> pos_to_index(const Vec2 &pos);
 
 public:
     Tensor<float, 3> map;
@@ -33,7 +33,8 @@ public:
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;
 
-    Environment(int width, int height, int channels, std::vector<float> decay_factors_v, std::vector<float> max_values_v);
+    Environment(int width, int height, int channels, std::vector<float> decay_factors_v,
+                std::vector<float> max_values_v);
 
     Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors, std::vector<float> max_values,
                 int offset_left, int offset_right, int offset_top, int offset_bottom,
@@ -41,18 +42,19 @@ public:
 
     auto get_view(const Yaal &yaal) {
         auto view_offsets = array<Index, 3>();
-        Vec2i view_top_left =
-                pos_to_index(yaal.top_left_position()) - Vec2i(yaal.genome.field_of_view, yaal.genome.field_of_view);
-        view_offsets[1] = view_top_left.x(); // [1] because the first dimension is the height
-        view_offsets[0] = view_top_left.y(); // [0] because the second dimension is the width
+        int i, j;
+        std::tie(i, j) = pos_to_index(yaal.top_left_position());
+        int fov = yaal.genome.field_of_view;
+        view_offsets[1] = i - fov;
+        view_offsets[0] = j - fov;
         view_offsets[2] = 0;
-        auto view_dims = array<Index, 3>{(Index) 2 * yaal.genome.field_of_view + yaal.genome.size,
-                                         (Index) 2 * yaal.genome.field_of_view + yaal.genome.size, (Index) channels};
+        auto view_dims = array<Index, 3>{(Index) 2 * fov + yaal.genome.size,
+                                         (Index) 2 * fov + yaal.genome.size, (Index) channels};
         return map.slice(view_offsets, view_dims);
     }
 
     /// Add the yaal to the environment
-    void add_to_map(Yaal yaal);
+    void add_to_map(const Yaal &yaal);
 
     /// Perform a step in the environment
     void step();

@@ -44,14 +44,16 @@ Environment::Environment(Tensor<float, 3> &&map, std::vector<float> decay_factor
 }
 
 
-Vec2i Environment::pos_to_index(const Vec2 &pos) {
-    return (pos - top_left_position.cast<float>() + Vec2(offset_left, offset_top)).array().round().cast<int>();
+std::tuple<int, int> Environment::pos_to_index(const Vec2 &pos) {
+    auto int_pos = (pos - top_left_position.cast<float>() + Vec2(offset_left, offset_top)).array().round().cast<int>();
+    return std::make_tuple(int_pos.y(), int_pos.x());
 }
 
 
-void Environment::add_to_map(Yaal yaal) {
-    Vec2i pos = pos_to_index(yaal.top_left_position());
-    array<Index, 3> offsets = {pos.y(), pos.x(), 0};
+void Environment::add_to_map(const Yaal &yaal) {
+    int i, j;
+    std::tie(i, j) = pos_to_index(yaal.top_left_position());
+    array<Index, 3> offsets = {i, j, 0};
     map.slice(offsets, yaal.genome.body.dimensions()) += yaal.genome.body;
 }
 
