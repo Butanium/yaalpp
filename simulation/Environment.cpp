@@ -51,8 +51,7 @@ std::tuple<int, int> Environment::pos_to_index(const Vec2 &pos) {
 
 
 void Environment::add_to_map(const Yaal &yaal) {
-    int i, j;
-    std::tie(i, j) = pos_to_index(yaal.top_left_position());
+    auto [i, j] = pos_to_index(yaal.top_left_position());
     array<Index, 3> offsets = {i, j, 0};
     map.slice(offsets, yaal.genome.body.dimensions()) += yaal.genome.body;
 }

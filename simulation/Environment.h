@@ -42,8 +42,7 @@ public:
 
     auto get_view(const Yaal &yaal) {
         auto view_offsets = array<Index, 3>();
-        int i, j;
-        std::tie(i, j) = pos_to_index(yaal.top_left_position());
+        auto [i, j] = pos_to_index(yaal.top_left_position());
         int fov = yaal.genome.field_of_view;
         view_offsets[1] = i - fov;
         view_offsets[0] = j - fov;
