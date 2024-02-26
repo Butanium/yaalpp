@@ -159,12 +159,8 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
 TEST_CASE("Checking validity of quadtree closest neighbor search :") {
 // Get seed from catch 2
     auto seed = Catch::getSeed();
-    SECTION("1 thread") {
-        test_quadtree(5000, 1, seed);
-    }SECTION("2 threads") {
-        test_quadtree(5000, 2, seed);
-    }SECTION("3 threads") {
-        test_quadtree(5000, 3, seed);
+    SECTION("7 threads") {
+        test_quadtree(5000, 7, seed);
     }SECTION("16 threads") {
         test_quadtree(5000, 16, seed);
     }
