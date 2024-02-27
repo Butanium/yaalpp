@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "rect.hpp"
+#include "../utils/rect.hpp"
 #include <vector>
 #include <optional>
 #include <Eigen/Core>

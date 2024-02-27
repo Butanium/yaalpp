@@ -1,6 +1,6 @@
 #include "circle.hpp"
 #include "rect.hpp"
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <utility>
 
 using Vec2 = Eigen::Vector2f;

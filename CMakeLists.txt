@@ -32,13 +32,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 add_executable(tests tests/test.cpp
-        physics/circle.cpp
-        physics/circle.cpp
-        physics/circle.hpp
+        utils/circle.cpp
+        utils/circle.cpp
+        utils/circle.hpp
         physics/quadtree.cpp
         physics/quadtree.hpp
-        physics/rect.cpp
-        physics/rect.hpp
+        utils/rect.cpp
+        utils/rect.hpp
         entity/Yaal.h
         entity/Yaal.cpp
         Constants.h
@@ -46,18 +46,19 @@ add_executable(tests tests/test.cpp
         simulation/Environment.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
+        utils/offset.hpp
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
 
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(yaalpp main.cpp
-        physics/circle.cpp
-        physics/circle.hpp
+        utils/circle.cpp
+        utils/circle.hpp
         physics/quadtree.cpp
         physics/quadtree.hpp
-        physics/rect.cpp
-        physics/rect.hpp
+        utils/rect.cpp
+        utils/rect.hpp
         entity/Yaal.cpp
         entity/Yaal.h
         Constants.h
@@ -65,6 +66,7 @@ add_executable(yaalpp main.cpp
         diffusion/separablefilter.cpp
         simulation/Environment.cpp
         simulation/Environment.h
+        utils/offset.hpp
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
 find_package(OpenMP)
@@ -75,9 +77,10 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 add_executable(example examples/tensor_broadcast_mul.cpp
-        physics/circle.cpp
-        physics/circle.hpp
-        physics/rect.cpp
-        physics/rect.hpp
+        utils/circle.cpp
+        utils/circle.hpp
+        utils/rect.cpp
+        utils/rect.hpp
+        utils/offset.hpp
 )
 target_link_libraries(example PRIVATE Eigen3::Eigen)

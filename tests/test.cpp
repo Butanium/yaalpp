@@ -170,7 +170,7 @@ TEST_CASE("ENVIRONMENT") {
     SECTION("Add to map") {
         using Constants::Yaal::MAX_FIELD_OF_VIEW;
         auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
-        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays);
+        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays, decays);
         Yaal yaal = Yaal::random(4);
         yaal.position = Vec2(1, 1) * Constants::Yaal::MAX_SIZE / 2;  // Center the Yaal
         env.add_to_map(yaal);
@@ -190,7 +190,7 @@ TEST_CASE("ENVIRONMENT") {
         std::cerr << "Creating env" << std::endl;
         int height = 30;
         int width = 30;
-        Environment env(width, height, 4, decays, decays);
+        Environment env(width, height, 4, decays, decays, decays);
         std::cerr << "Adding yaals" << std::endl;
         for (int i = 0; i < 100; i++) {
             if (i % 100 == 0) {

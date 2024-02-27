@@ -23,20 +23,23 @@ public:
     const int global_height;
     const int global_width;
     const int channels;
-    const int offset_left;
-    const int offset_right;
-    const int offset_top;
-    const int offset_bottom;
+    const Offset offset_padding;
+    const Offset offset_sharing;
     const Vec2i top_left_position;
     const SeparableFilter diffusion_filter;
     std::vector<Yaal> yaals = {};
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;
 
-    Environment(int width, int height, int channels, std::vector<float> decay_factors_v,
+    Environment(int width, int height, int channels,
+                std::vector<float> decay_factors_v,
+                std::vector<float> diffusion_factor,
                 std::vector<float> max_values_v);
 
-    Environment(Tensor<float, 3> &&map, std::vector<float> decay_factors, std::vector<float> max_values,
+    Environment(Tensor<float, 3> &&map,
+                std::vector<float> decay_factors,
+                std::vector<float> diffusion_factor,
+                std::vector<float> max_values,
                 int offset_left, int offset_right, int offset_top, int offset_bottom,
                 Vec2i &&top_left_position, int global_height, int global_width);
 
@@ -55,9 +58,11 @@ public:
     /// Add the yaal to the environment
     void add_to_map(const Yaal &yaal);
 
+    /// Resolve collisions between yaals and closests, and clamp the positions inside the environment. If a Yaal is in the shared area of another MPI process, it is added to a buffer that will be sent to the other process.
+    void resolve_collisions(const std::vector<Vec2> &closests);
+
     /// Perform a step in the environment
     void step();
-
 };
 
 

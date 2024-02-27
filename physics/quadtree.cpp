@@ -3,7 +3,7 @@
 */
 
 #include "quadtree.hpp"
-#include "circle.hpp"
+#include "../utils/circle.hpp"
 #include <utility>
 #include <algorithm>
 
@@ -200,6 +200,8 @@ void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2>
         std::optional<Vec2> closestPoint = closest(yaals[i].position);
         if (closestPoint.has_value()) {
             closestPoints[i] = closestPoint.value();
+        } else {
+            closestPoints[i] = yaals[i].position;
         }
     }
 }

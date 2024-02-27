@@ -5,7 +5,7 @@
 #include <argparse/argparse.hpp>
 
 #include "physics/quadtree.hpp"
-#include "physics/rect.hpp"
+#include "utils/rect.hpp"
 #include <omp.h>
 #include <cstdio>
 #include "simulation/Environment.h"
@@ -116,6 +116,4 @@ int main(int argc, char *argv[]) {
         std::cout << "#";
         env.step();
     }
-
-
 }
