@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 #else
     std::cout << "OpenMP is disabled" << std::endl;
 #endif
-    auto env = Environment(height, width, num_channels, decay_factors, max_values);
+    auto env = Environment(height, width, num_channels, decay_factors, diffusion_rate, max_values);
     env.yaals.reserve(num_yaals);
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);

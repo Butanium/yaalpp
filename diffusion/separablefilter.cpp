@@ -39,7 +39,6 @@ SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_co
     row_filters = Tensor<float, 2>(nb_channels, filter_size);
     col_filters = Tensor<float, 2>(nb_channels, filter_size);
 
-    // TODO : different sigma for each channel
     int start = skip_color_channels ? 3 : 0;
     for (int i = start; i < nb_channels; i++) {
         row_filters.chip(i, 0) = GaussianFilter(filter_size, sigma[i]);
