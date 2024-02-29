@@ -2,6 +2,7 @@
 #include "opencv2/imgproc.hpp"
 
 #include <iostream>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/opencv.hpp>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <mpi.h>
@@ -96,7 +97,7 @@ Stream::~Stream() {
   }
 }
 
-void Stream::append_frame(Mat* frame) {
+void Stream::append_frame(Mat* frame, const char* filename) {
   Mat resized;
 
   if (this->writer == nullptr || !this->z_only_writer) {
@@ -116,10 +117,14 @@ void Stream::append_frame(Mat* frame) {
     }
 
     this->writer->write(*this->img_buffer);
+
+    if (filename != nullptr) {
+      imwrite(filename, *this->img_buffer);
+    }
   }
 }
 
-void Stream::append_frame(Tensor<float, 3> &frame) {
+void Stream::append_frame(Tensor<float, 3> &frame, const char* filename) {
   Mat* image = eigen2cv(frame);
   this->append_frame(image);
   delete image;

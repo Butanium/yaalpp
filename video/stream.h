@@ -54,14 +54,16 @@ class Stream {
      * If the rank is 0, the frame is written to the disk. If z_only_writer is true, the frame isn't taken into account.
      * If the rank is not 0, the frame is sent to the rank 0.
      * @param frame The frame to append.
+     * @param filename The name of the file to write to.
      */
-    void append_frame(cv::Mat* frame);
+    void append_frame(cv::Mat* frame, const char* filename = nullptr);
 
     /**
      * Append a frame to the video stream (write the frame to the disk).
      * @param frame The frame to append.
+     * @param filename The name of the file to write to.
      */
-    void append_frame(Eigen::Tensor<float, 3> &frame);
+    void append_frame(Eigen::Tensor<float, 3> &frame, const char* filename = nullptr);
 
 
     /**
