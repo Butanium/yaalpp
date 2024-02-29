@@ -60,6 +60,8 @@ add_executable(tests tests/test.cpp
         utils/offset.hpp
         video/stream.cpp
         video/stream.h
+        utils/utils.cpp
+        utils/utils.h
 
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
@@ -83,6 +85,8 @@ add_executable(yaalpp main.cpp
         utils/offset.hpp
         video/stream.cpp
         video/stream.h
+        utils/utils.cpp
+        utils/utils.h
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
 
