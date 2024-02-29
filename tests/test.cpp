@@ -289,6 +289,10 @@ TEST_CASE("ENVIRONMENT") {
     }SECTION("Env steps") {
         // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
+        auto seed = Catch::getSeed();
+        seed = 3338408716;
+        Yaal::generator.seed(seed);
+        YaalGenome::generator.seed(seed);
         auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
         std::cerr << "Creating env" << std::endl;
         int height = 30;
@@ -296,19 +300,29 @@ TEST_CASE("ENVIRONMENT") {
         Environment env(width, height, 4, decays, decays, decays);
         std::cerr << "Adding yaals" << std::endl;
         for (int i = 0; i < 100; i++) {
-            if (i % 100 == 0) {
-                std::cerr << i << std::endl;
-            }
             Yaal yaal = Yaal::random(4);
             yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
             env.yaals.push_back(yaal);
+            std::cout << yaal.position.x() << " " << yaal.position.y() << std::endl;
+            std::cout << yaal.genome.brain.direction_weights << std::endl;
         }
         std::cerr << "Updating yaals" << std::endl;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             if (i % 10 == 0) {
                 std::cerr << i << std::endl;
             }
             env.step();
+        }
+        // at the end print all positions sorted from top left to bottom right
+        std::vector<Vec2> positions;
+        for (auto &yaal : env.yaals) {
+            positions.push_back(yaal.position);
+        }
+        std::sort(positions.begin(), positions.end(), [](const Vec2 &a, const Vec2 &b) {
+            return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y());
+        });
+        for (auto &pos : positions) {
+            std::cerr << pos.x() << " " << pos.y() << std::endl;
         }
     }
 }

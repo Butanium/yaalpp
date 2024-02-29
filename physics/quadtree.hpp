@@ -45,6 +45,8 @@ private:
     // actually does the closest point search. The other is just here to initialize the optional and put a -1 in the call to this one.
     float closest(const Vec2& v, std::optional<Vec2> &bestPoint, float bestDist);
 
+    bool insert_aux(const Vec2 &v);
+
 public:
     // default capacity is 1 and default radius is 0
     explicit QuadTree(Rect&& rect);
@@ -58,7 +60,7 @@ public:
     ~QuadTree();
 
     // returns true if the point was inserted, false otherwise
-    bool insert(const Vec2& v);
+    void insert(const Vec2& v);
 
     // returns the closest point to v. Uses naive search (query all points within collision radius and return the naive closest)
     // If no points are found, returns
@@ -71,4 +73,5 @@ public:
     void initialize(const std::vector<Yaal>& yaals);
 
     void get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints);
+
 };

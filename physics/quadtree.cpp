@@ -52,7 +52,7 @@ void QuadTree::subdivide() {
 
     for (const Vec2 &v: points) {
         for (QuadTree *child: children) {
-            if (child->insert(v)) {
+            if (child->insert_aux(v)) {
                 break;
             }
         }
@@ -62,7 +62,7 @@ void QuadTree::subdivide() {
     subdivided = true;
 }
 
-bool QuadTree::insert(const Vec2 &v) {
+bool QuadTree::insert_aux(const Vec2 &v) {
     if (!rect.contains(v)) {
         return false;
     }
@@ -86,20 +86,29 @@ bool QuadTree::insert(const Vec2 &v) {
         } else {
             subdivide();
             omp_unset_lock(&lock);
-            assert(insert(v));
+            assert(insert_aux(v));
             return true;
         }
     }
     insert_in_children:
     if (subdivided) {
         for (int i = 0; i < 4; i++) {
-            if (children[i]->insert(v)) {
+            if (children[i]->insert_aux(v)) {
                 return true;
             }
         }
         throw std::runtime_error("Failed to insert in all children");
     } else {
         throw std::runtime_error("Failed to insert in leaf");
+    }
+}
+
+void QuadTree::insert(const Vec2 &v) {
+    if (!rect.contains(v)) {
+        throw std::runtime_error("Point not in quadtree");
+    }
+    if (!insert_aux(v)) {
+        throw std::runtime_error("Failed to insert");
     }
 }
 
@@ -189,7 +198,7 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
      * If it is a leaf (whether full or not), insert the Yaal and delock the mutex.
      */
     int nb_Yaals = yaals.size();
-#pragma omp parallel for schedule(static)
+//#pragma omp parallel for schedule(static) // TODO?: fix parallism
     for (int i = 0; i < nb_Yaals; i++) {
         insert(yaals[i].position);
     }
