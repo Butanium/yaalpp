@@ -4,6 +4,9 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
 
+#include <mpi.h>
+#include "video/stream.h"
+
 #include "physics/quadtree.hpp"
 #include "utils/rect.hpp"
 #include <omp.h>
@@ -78,17 +81,9 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     }
 }
 
-inline auto getSlice(Eigen::Tensor<float, 2> &a,
-                     Eigen::array<Eigen::Index, 2> &offset,
-                     Eigen::array<Eigen::Index, 2> &extent) {
-    return a.slice(offset, extent);
-}
-
-void test(auto slice) {
-    slice.setConstant(1);
-}
-
 int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
+
     argparse::ArgumentParser program("yaalpp");
     parse_arguments(argc, argv, program);
     int height = program.get<int>("--height");
@@ -116,4 +111,5 @@ int main(int argc, char *argv[]) {
         std::cout << "#";
         env.step();
     }
+    MPI_Finalize();
 }

@@ -31,6 +31,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+# OpenCV
+find_package(OpenCV REQUIRED)
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+link_directories( ${OpenCV_LIB_DIR} )
+
+# OpenMPI
+find_package(MPI REQUIRED)
+
+# OpenMP
+find_package(OpenMP REQUIRED)
+
 add_executable(tests tests/test.cpp
         utils/circle.cpp
         utils/circle.cpp
@@ -47,8 +58,11 @@ add_executable(tests tests/test.cpp
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
         utils/offset.hpp
+        video/stream.cpp
+        video/stream.h
+
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -67,14 +81,11 @@ add_executable(yaalpp main.cpp
         simulation/Environment.cpp
         simulation/Environment.h
         utils/offset.hpp
+        video/stream.cpp
+        video/stream.h
 )
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse)
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(yaalpp PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(tests PUBLIC OpenMP::OpenMP_CXX)
-
-endif()
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(tests PUBLIC OpenMP::OpenMP_CXX)
 
 add_executable(example examples/tensor_broadcast_mul.cpp
         utils/circle.cpp

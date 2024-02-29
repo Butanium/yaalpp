@@ -98,6 +98,8 @@ bool QuadTree::insert(const Vec2 &v) {
             }
         }
         throw std::runtime_error("Failed to insert in all children");
+    } else {
+        throw std::runtime_error("Failed to insert in leaf");
     }
 }
 
