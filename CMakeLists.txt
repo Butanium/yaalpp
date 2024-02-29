@@ -85,7 +85,6 @@ add_executable(yaalpp main.cpp
         video/stream.h
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
-target_link_libraries(tests PUBLIC OpenMP::OpenMP_CXX)
 
 add_executable(example examples/tensor_broadcast_mul.cpp
         utils/circle.cpp
