@@ -89,13 +89,16 @@ void Environment::step() {
 //#pragma omp parallel for schedule(static) // TODO perf: check if dynamic is useful
     for (auto &yaal: yaals) {
         auto view = get_view(yaal);
+        assert(!yaal.position.hasNaN());
+
         yaal.update(view);
+        assert(!yaal.position.hasNaN());
     }
     QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)), (float) yaals[0].genome.size / 2.f);
     quadtree.initialize(yaals);
     std::vector<Vec2> closests(yaals.size());
     quadtree.get_all_closest(yaals, closests);
-    //resolve_collisions(closests);
+//    resolve_collisions(closests);
     map *= decay_factors.broadcast(array<int, 3>{width + 2 * MAX_FIELD_OF_VIEW, height + 2 * MAX_FIELD_OF_VIEW, 1});
     diffusion_filter.apply_inplace(map, offset_padding + offset_sharing); // TODO : check sharing offset
     for (auto &yaal: yaals) {

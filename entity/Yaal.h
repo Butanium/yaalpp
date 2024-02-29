@@ -63,6 +63,7 @@ class YaalMLP {
             return Vec2::Zero();
         }
         direction.normalize();
+        assert (!direction.hasNaN());
         return direction;
     }
 
@@ -94,7 +95,6 @@ public:
 
 /// The genome of a Yaal. Contains the brain and other fixed parameters
 class YaalGenome {
-    static thread_local std::mt19937 generator;
 public:
     YaalMLP brain;
     float max_speed;
@@ -108,6 +108,7 @@ public:
     static YaalGenome random(int num_channels);
 //    float max_size;
 //    float init_size;
+    static thread_local std::mt19937 generator;
 };
 
 /** The state of a Yaal.
