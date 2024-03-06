@@ -38,9 +38,14 @@ void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
 
-Yaal::Yaal(Vec2 &&position, YaalGenome &&genome) : position(std::move(position)), genome(std::move(genome)) {}
+Yaal::Yaal(Vec2 &&position, YaalGenome &&genome, Tensor<float, 3> &&body) :
+        position(std::move(position)),
+        genome(std::move(genome)),
+        body(std::move(body)) {}
 
-Yaal::Yaal(const Vec2 &position, const YaalGenome &genome) : position(position), genome(genome) {}
+Yaal::Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body) :
+        position(position),
+        genome(genome), body(body) {}
 
 // TODO : is it ok with openmp ?
 thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
@@ -51,7 +56,7 @@ thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}())
  * @param size The size of the body
  * @param signature The signature of the yaal (i.e. the color and smell)
  */
-Tensor<float, 3> YaalGenome::generate_body(int size, const std::vector<float> &signature) {
+Tensor<float, 3> YaalGenome::generate_body() {
     Tensor<float, 3> body(size, size, (long) signature.size());
     for (int c = 0; c < signature.size(); c++)
         body.chip(c, 2).setConstant(signature[c]);
@@ -62,11 +67,11 @@ Tensor<float, 3> YaalGenome::generate_body(int size, const std::vector<float> &s
             float dx = (float) i - center;
             float dy = (float) j - center;
             auto slice = body.chip(i, 0).chip(j, 0);
-            if (dx * dx + dy * dy > size * size / 4.f) {
+            if (dx * dx + dy * dy > (float) (size * size) / 4.f) {
                 slice.setZero();
             } else {
                 // Interpolate between *= 0.5 and *= 1
-                slice = slice * (0.5f + 0.5f * (1 - std::sqrt(dx * dx + dy * dy) / (size / 2.f)));
+                slice = slice * (0.5f + 0.5f * (1 - std::sqrt(dx * dx + dy * dy) / ((float) size / 2.f)));
             }
         }
     }
@@ -81,11 +86,10 @@ YaalGenome YaalGenome::random(int num_channels) {
     auto size_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_SIZE, Constants::Yaal::MAX_SIZE);
     auto signature_rng = std::uniform_real_distribution<float>(0, 1);
     int size = size_rng(generator);
-    std::vector<float> signature =  std::vector<float>(num_channels);
+    std::vector<float> signature = std::vector<float>(num_channels);
     for (int i = 0; i < num_channels; i++) {
         signature[i] = signature_rng(generator);
     }
-    auto body = generate_body(size, signature);
     return {
             .brain = YaalMLP{
                     .direction_weights = Tensor<float, 1>(num_channels).setRandom(),
@@ -93,13 +97,13 @@ YaalGenome YaalGenome::random(int num_channels) {
             .max_speed = speed_rng(generator),
             .field_of_view = fov_rng(generator),
             .size = size,
-            .body = body,
             .signature = signature
     };
 }
 
 Yaal Yaal::random(int num_channels, const Vec2 &position) {
-    return {position, YaalGenome::random(num_channels)};
+    auto genome = YaalGenome::random(num_channels);
+    return {position, genome, genome.generate_body()};
 }
 
 void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {

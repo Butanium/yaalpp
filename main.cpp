@@ -4,8 +4,11 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
 
+#include <mpi.h>
+#include "video/stream.h"
+
 #include "physics/quadtree.hpp"
-#include "physics/rect.hpp"
+#include "utils/rect.hpp"
 #include <omp.h>
 #include <cstdio>
 #include "simulation/Environment.h"
@@ -78,17 +81,9 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     }
 }
 
-inline auto getSlice(Eigen::Tensor<float, 2> &a,
-                     Eigen::array<Eigen::Index, 2> &offset,
-                     Eigen::array<Eigen::Index, 2> &extent) {
-    return a.slice(offset, extent);
-}
-
-void test(auto slice) {
-    slice.setConstant(1);
-}
-
 int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
+
     argparse::ArgumentParser program("yaalpp");
     parse_arguments(argc, argv, program);
     int height = program.get<int>("--height");
@@ -104,7 +99,7 @@ int main(int argc, char *argv[]) {
 #else
     std::cout << "OpenMP is disabled" << std::endl;
 #endif
-    auto env = Environment(height, width, num_channels, decay_factors, max_values);
+    auto env = Environment(height, width, num_channels, decay_factors, diffusion_rate, max_values);
     env.yaals.reserve(num_yaals);
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);
@@ -116,6 +111,5 @@ int main(int argc, char *argv[]) {
         std::cout << "#";
         env.step();
     }
-
-
+    MPI_Finalize();
 }

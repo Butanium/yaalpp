@@ -1,4 +1,13 @@
+#define CATCH_CONFIG_RUNNER
+
+#include <catch2/catch_session.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/reporters/catch_reporter_console.hpp>
+#include <catch2/reporters/catch_reporter_helpers.hpp>
+
+#include <mpi.h>
+#include "../video/stream.h"
+
 #include "../entity/Yaal.h"
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -7,7 +16,10 @@
 #include "../Constants.h"
 #include "../physics/quadtree.hpp"
 #include "../simulation/Environment.h"
+#include "../utils/utils.h"
 #include <catch2/catch_get_random_seed.hpp>
+#include <vector>
+#include <format>
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -156,6 +168,96 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
     }
 }
 
+
+TEST_CASE("Output video 5 processes", "[output_five]") {
+    int comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size != 5) {
+        std::cout << "Skipping test, not 5 processes" << std::endl;
+        return;
+    }
+    ensure_directory_exists("test_output");
+
+    Stream stream("test_output/output_5_mpi.mp4", 2, cv::Size(1000, 1000), 2, 2, true, MPI_COMM_WORLD);
+
+    int rank_id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank_id);
+
+    Eigen::Tensor<float, 3> map(2, 2, 3);
+    if (rank_id == 0) {
+        for (int i = 0; i < 16; i++) stream.append_frame(nullptr);
+    } else {
+        for (int i = 0; i < 16; i++) {
+            map.setZero();
+
+            if ((i / 4) + 1 == rank_id) {
+                int x = i % 4;
+                map(x % 2, x / 2, 0) = 1;
+                map(x % 2, x / 2, 1) = 1;
+                map(x % 2, x / 2, 2) = 1;
+            }
+
+            stream.append_frame(map);
+        }
+    }
+
+    stream.end_stream();
+}
+
+TEST_CASE("Output video 4 processes", "[output_four]") {
+    int comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size != 4) {
+        std::cout << "Skipping test, not 4 processes" << std::endl;
+        return;
+    }
+    ensure_directory_exists("test_output");
+    Stream stream("test_output/output_4_mpi.mp4", 2, cv::Size(1000, 1000), 2, 2, false, MPI_COMM_WORLD);
+
+    int rank_id;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank_id);
+
+    Eigen::Tensor<float, 3> map(2, 2, 3);
+
+    for (int i = 0; i < 16; i++) {
+        map.setZero();
+
+        if (i / 4 == rank_id) {
+            int x = i % 4;
+            map(x % 2, x / 2, 0) = 1;
+            map(x % 2, x / 2, 1) = 1;
+            map(x % 2, x / 2, 2) = 1;
+        }
+
+        stream.append_frame(map);
+    }
+
+    stream.end_stream();
+}
+
+TEST_CASE("Output video one process", "[output_single]") {
+    int comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size != 1) {
+        std::cout << "Skipping test, not 1 process" << std::endl;
+        return;
+    }
+    ensure_directory_exists("test_output");
+    Stream stream("test_output/output_single_mpi.mp4", 2, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+    Eigen::Tensor<float, 3> map(3, 3, 3);
+
+    for (int i = 0; i < 10; i++) {
+        map.setZero();
+
+        map(i / 3, i % 3, 0) = 1;
+        map(i / 3, i % 3, 1) = 1;
+        map(i / 3, i % 3, 2) = 1;
+
+        stream.append_frame(map);
+    }
+    stream.end_stream();
+}
+
 TEST_CASE("Checking validity of quadtree closest neighbor search :") {
 // Get seed from catch 2
     auto seed = Catch::getSeed();
@@ -166,11 +268,21 @@ TEST_CASE("Checking validity of quadtree closest neighbor search :") {
     }
 }
 
+// Custom main function to handle MPI initialization and finalization
+int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
+    int result = Catch::Session().run(argc, argv);
+    MPI_Finalize();
+    return result;
+}
+
+
 TEST_CASE("ENVIRONMENT") {
     SECTION("Add to map") {
         using Constants::Yaal::MAX_FIELD_OF_VIEW;
-        auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
-        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays);
+        auto decays = std::vector<float>{0, 0, 0, 0.9};
+        auto max_values = std::vector<float>{1, 1, 1, 1};
+        Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays, max_values);
         Yaal yaal = Yaal::random(4);
         yaal.position = Vec2(1, 1) * Constants::Yaal::MAX_SIZE / 2;  // Center the Yaal
         env.add_to_map(yaal);
@@ -178,34 +290,59 @@ TEST_CASE("ENVIRONMENT") {
                              2 * Constants::Yaal::MAX_FIELD_OF_VIEW + Constants::Yaal::MAX_SIZE, 4);
         map.setZero();
         map.slice(array<Index, 3>{Constants::Yaal::MAX_FIELD_OF_VIEW, Constants::Yaal::MAX_FIELD_OF_VIEW, 0},
-                  array<Index, 3>{Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4}) += yaal.genome.body;
+                  array<Index, 3>{Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4}) += yaal.body;
         REQUIRE(is_close(env.map, map));
         yaal.genome.field_of_view = MAX_FIELD_OF_VIEW;
         Tensor<float, 3> view = env.get_view(yaal);
         REQUIRE(is_close(env.map, view));
     }SECTION("Env steps") {
+        ensure_directory_exists("test_output/frames");
         // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
-        auto decays = std::vector<float>{0.9, 0.9, 0.9, 0.9};
-        std::cerr << "Creating env" << std::endl;
-        int height = 30;
-        int width = 30;
-        Environment env(width, height, 4, decays, decays);
-        std::cerr << "Adding yaals" << std::endl;
-        for (int i = 0; i < 100; i++) {
-            if (i % 100 == 0) {
-                std::cerr << i << std::endl;
-            }
+        auto seed = Catch::getSeed();
+        std::cout << "SEED WAS MANUALLY SET TO " << seed << std::endl;
+        seed = 3338408716;
+        Yaal::generator.seed(seed);
+        YaalGenome::generator.seed(seed);
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 200;
+        int width = 1000;
+        Stream stream("test_output/env_steps.mp4", 10, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+        int num_yaal = 1000;
+        int num_steps = 100;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        for (int i = 0; i < num_yaal; i++) {
             Yaal yaal = Yaal::random(4);
             yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.yaals.push_back(yaal);
+            env.add_yaal(yaal);
         }
-        std::cerr << "Updating yaals" << std::endl;
-        for (int i = 0; i < 100; i++) {
-            if (i % 10 == 0) {
-                std::cerr << i << std::endl;
-            }
+        std::cout << "Updating yaals" << std::endl;
+        for (auto &yaal: env.yaals) {
+            env.add_to_map(yaal);
+        }
+        remove_files_in_directory("test_output/frames");
+        for (int i = 0; i < num_steps; i++) {
+            auto frame_name = std::format("test_output/frames/frame_{}.png", i);
+            // View the env to send the 1, 2, 3 channels instead of 0-3
+            auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
+            Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1}, array<Index, 3>{height, width, 3});
+            stream.append_frame(reshaped_map, frame_name.c_str());
             env.step();
+        }
+        stream.end_stream();
+        // at the end print all positions sorted from top left to bottom right
+        std::cerr << "\"Save\" of the simulation:" << std::endl;
+        std::vector<Vec2> positions;
+        for (auto &yaal: env.yaals) {
+            positions.push_back(yaal.position);
+        }
+        std::sort(positions.begin(), positions.end(), [](const Vec2 &a, const Vec2 &b) {
+            return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y());
+        });
+        for (auto &pos: positions) {
+            std::cerr << pos.x() << " " << pos.y() << std::endl;
         }
     }
 }

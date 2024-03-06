@@ -63,6 +63,7 @@ class YaalMLP {
             return Vec2::Zero();
         }
         direction.normalize();
+        assert (!direction.hasNaN());
         return direction;
     }
 
@@ -94,20 +95,20 @@ public:
 
 /// The genome of a Yaal. Contains the brain and other fixed parameters
 class YaalGenome {
-    static thread_local std::mt19937 generator;
 public:
     YaalMLP brain;
     float max_speed;
     int field_of_view;
     int size;
-    Tensor<float, 3> body;
     std::vector<float> signature;
 
-    static Tensor<float, 3> generate_body(int size, const std::vector<float> &signature);
+    Tensor<float, 3> generate_body();
 
     static YaalGenome random(int num_channels);
+
 //    float max_size;
 //    float init_size;
+    static thread_local std::mt19937 generator;
 };
 
 /** The state of a Yaal.
@@ -132,9 +133,9 @@ public:
      * @param position The initial position
      * @param genome The genome
      */
-    Yaal(Vec2 &&position, YaalGenome &&genome);
+    Yaal(Vec2 &&position, YaalGenome &&genome, Tensor<float, 3> &&body);
 
-    Yaal(const Vec2 &position, const YaalGenome &genome);
+    Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body);
 
     static thread_local std::mt19937 generator;
 
@@ -150,6 +151,7 @@ public:
     Vec2 position;
     Vec2 direction;
     YaalGenome genome;
+    Tensor<float, 3> body;
 
     /**
      * Update the Yaal's state position, direction, speed, etc.
