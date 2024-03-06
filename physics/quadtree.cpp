@@ -198,7 +198,7 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
      * If it is a leaf (whether full or not), insert the Yaal and delock the mutex.
      */
     int nb_Yaals = yaals.size();
-//#pragma omp parallel for schedule(static) // TODO?: fix parallism
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < nb_Yaals; i++) {
         insert(yaals[i].position);
     }

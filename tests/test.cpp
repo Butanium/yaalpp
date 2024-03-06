@@ -304,28 +304,19 @@ TEST_CASE("ENVIRONMENT") {
         seed = 3338408716;
         Yaal::generator.seed(seed);
         YaalGenome::generator.seed(seed);
-        std::vector<float> diffusion_factors = {0.9, 0.9, 0.9, 0.9};
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
         std::vector<float> max_values = {1, 1, 1, 1};
-        std::vector<float> decay_factors = {0, 0, 0, 0.9};
-        int height = 30;
-        int width = 30;
-        Stream stream("test_output/env_steps.mp4", 10, cv::Size(300, 300), 1, 1, false, MPI_COMM_WORLD);
-        int num_yaal = 2;
-        int num_steps = 1000;
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 200;
+        int width = 1000;
+        Stream stream("test_output/env_steps.mp4", 10, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+        int num_yaal = 1000;
+        int num_steps = 100;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
         for (int i = 0; i < num_yaal; i++) {
             Yaal yaal = Yaal::random(4);
             yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-//            std::cout << yaal.position.x() << " " << yaal.position.y() << std::endl;
-//            std::cout << yaal.genome.brain.direction_weights << std::endl;
-            yaal.genome.signature = {0, 0, 1, 0};
-            yaal.body = yaal.genome.generate_body();
             env.add_yaal(yaal);
-//            for (int i = 0; i < 4; i++) {
-//                std::cout << yaal.genome.signature[i] << " ";
-//            }
-//            std::cout << std::endl;
-
         }
         std::cout << "Updating yaals" << std::endl;
         for (auto &yaal: env.yaals) {
@@ -333,13 +324,12 @@ TEST_CASE("ENVIRONMENT") {
         }
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
-            if (i % 10 == 0) {
-                std::cout << i << std::endl;
-            }
             auto frame_name = std::format("test_output/frames/frame_{}.png", i);
-            stream.append_frame(env.map, frame_name.c_str());
+            // View the env to send the 1, 2, 3 channels instead of 0-3
+            auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
+            Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1}, array<Index, 3>{height, width, 3});
+            stream.append_frame(reshaped_map, frame_name.c_str());
             env.step();
-//            std::cout << "Frame " << i << " done" << std::endl;
         }
         stream.end_stream();
         // at the end print all positions sorted from top left to bottom right

@@ -47,8 +47,8 @@ public:
         auto view_offsets = array<Index, 3>();
         auto [i, j] = pos_to_index(yaal.top_left_position());
         int fov = yaal.genome.field_of_view;
-        view_offsets[1] = i - fov;
-        view_offsets[0] = j - fov;
+        view_offsets[0] = i - fov;
+        view_offsets[1] = j - fov;
         view_offsets[2] = 0;
         auto view_dims = array<Index, 3>{(Index) 2 * fov + yaal.genome.size,
                                          (Index) 2 * fov + yaal.genome.size, (Index) channels};
@@ -66,12 +66,10 @@ public:
 
 
     /// Resolve collisions between yaals and closests, and clamp the positions inside the environment. If a Yaal is in the shared area of another MPI process, it is added to a buffer that will be sent to the other process.
-    void resolve_collisions(const std::vector<Vec2> &closests);
+    bool resolve_collisions(const std::vector<Vec2> &closests);
 
     /// Perform a step in the environment
     void step();
-
-    void resolve_border_collisions();
 };
 
 
