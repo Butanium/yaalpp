@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "../utils/offset.hpp"
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 
@@ -32,19 +33,25 @@ private:
 public:
     SeparableFilter(int filter_size, int nb_channels);
 
-    SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels);
+    SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma);
+
+    SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels, std::vector<float> sigma);
 
     ~SeparableFilter();
 
 private:
-    int get_border_index(int index, int min, int max) const;
+    [[nodiscard]] int get_border_index(int index, int min, int max) const;
 
-    void initialize_buffer(int start_c, int start_i, int start_j, const Tensor<float, 3>& input, Tensor<float, 1>& buffer, bool row_or_col, bool half_window);
+    void initialize_buffer(int start_c, int start_i, int start_j, const Tensor<float, 3>& input, Tensor<float, 1>& buffer, bool row_or_col, bool half_window) const;
 
 public:
     // Apply the filter to the input tensor and store the result in the output tensor
     void apply(const Tensor<float, 3>& input, Tensor<float, 3>& output);
 
+    void apply(const Tensor<float, 3> &input, Tensor<float, 3> &output, Offset offset);
+
     // Apply the filter inplace to the input tensor
-    void apply_inplace(Tensor<float, 3>& input);
+    void apply_inplace(Tensor<float, 3>& input) const;
+
+    void apply_inplace(Tensor<float, 3>& input, Offset offset) const;
 };

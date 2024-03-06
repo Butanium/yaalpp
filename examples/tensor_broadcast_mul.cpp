@@ -11,8 +11,12 @@ int main() {
     int channels = 2;
     Eigen::Tensor<double, 3> A(height, width, channels);
     A.setRandom();
+    // Chip A
+    auto chip = A.chip(0, 2);
+    double f = 10000.;
+    chip = chip * 10000.;
     std::cout << "The array A is:\n" << A.format(Eigen::TensorIOFormat::Numpy()) << std::endl;
-
+    exit(0);
     // Create a (5) array of random values
     Eigen::Tensor<double, 1> B(channels);
     B.setRandom();
@@ -21,8 +25,8 @@ int main() {
     array<int, 3> three_dims{{7, 11, 1}};
     Tensor<float, 3> result = input.reshape(three_dims);
     auto C =
-            B.reshape(Eigen::array < Eigen::Index, 3 > {1, 1, channels})
-                    .broadcast(Eigen::array < Eigen::Index, 3 > {height, width, 1});
+            B.reshape(Eigen::array<Eigen::Index, 3>{1, 1, channels})
+                    .broadcast(Eigen::array<Eigen::Index, 3>{height, width, 1});
     // if you use Tensor<float, 3> C = ... instead of auto C = ..., that will create a new tensor instead of a reference
     B(0) = 1;
     std::cout << "The array B is:\n" << B.format(Eigen::TensorIOFormat::Numpy()) << std::endl;
