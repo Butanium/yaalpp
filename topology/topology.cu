@@ -1,7 +1,7 @@
 #include "topology.h"
 #include <mpi.h>
 #include <stdlib.h>
-
+#include <cuda_runtime.h>
 
 int get_nb_nodes(MPI_Comm comm) {
   int nb_nodes;
@@ -35,10 +35,17 @@ int get_nb_cores_per_process() {
   return nb_threads;
 }
 
+int get_nb_gpus() {
+  int nb_gpus;
+  cudaGetDeviceCount(&nb_gpus);
+  return nb_gpus;
+}
+
 Topology get_topology(MPI_Comm comm) {
   Topology t;
   t.nodes = get_nb_nodes(comm);
   t.processes = get_nb_processes(comm);
   t.cores_per_process = get_nb_cores_per_process();
+  t.gpus = get_nb_gpus();
   return t;
 }

@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.27)
-project(yaalpp)
+project(yaalpp LANGUAGES CXX CUDA)
 Include(FetchContent)
 # for performance: add_compile_options(-O3 -march=native)
 # for debug: add_compile_options(-O0)
+
+# enable_language(CUDA)
 
 # Test library
 FetchContent_Declare(
@@ -40,6 +42,16 @@ find_package(MPI REQUIRED)
 # OpenMP
 find_package(OpenMP REQUIRED)
 
+# Cuda
+# find_package(CUDAToolkit)
+# find_package(CUDA REQUIRED)
+# include_directories(${CUDA_INCLUDE_DIRS})
+# include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+
+# set_property(TARGET yaalpp PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+# set_property(tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+
 add_executable(tests tests/test.cpp
         physics/circle.cpp
         physics/circle.cpp
@@ -51,10 +63,14 @@ add_executable(tests tests/test.cpp
         entity/Yaal.h
         entity/Yaal.cpp
         Constants.h
+        topology/topology.cu
+        topology/topology.h
         video/stream.cpp
         video/stream.h
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+
+# set_target_properties(tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 set(CMAKE_CXX_STANDARD 20)
 

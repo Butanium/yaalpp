@@ -15,6 +15,7 @@
 #include "../Constants.h"
 #include "../physics/quadtree.hpp"
 #include <catch2/catch_get_random_seed.hpp>
+#include "../topology/topology.h"
 
 using Eigen::Tensor;
 
@@ -27,6 +28,14 @@ void eval_yaal() {
     yaal.update(input_view);
 }
 
+TEST_CASE("Topology") {
+  Topology t = get_topology(MPI_COMM_WORLD);
+
+  REQUIRE(t.nodes == 1);
+  REQUIRE(t.processes == 1);
+  REQUIRE(t.cores_per_process == 1);
+  REQUIRE(t.gpus == 1);
+}
 
 TEST_CASE("Yaal eval") {
     SECTION("eval random yaals") {

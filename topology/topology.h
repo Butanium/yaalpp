@@ -7,6 +7,7 @@ struct Topology {
   int nodes;
   int processes;
   int cores_per_process;
+  int gpus;
 };
 
 Topology get_topology(MPI_Comm comm);
