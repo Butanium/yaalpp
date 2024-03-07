@@ -3,6 +3,8 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <argparse/argparse.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 #include <mpi.h>
 #include "video/stream.h"
@@ -13,6 +15,8 @@
 #include <cstdio>
 #include "simulation/Environment.h"
 #include "Constants.h"
+using json = nlohmann::json;
+
 
 using Eigen::Tensor;
 using Eigen::array;
