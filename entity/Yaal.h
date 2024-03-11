@@ -5,6 +5,8 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../Constants.h"
+// TODO : can remove ?
+#include <iostream>
 
 #ifndef YAALPP_CREATURE_H
 #define YAALPP_CREATURE_H
@@ -48,6 +50,7 @@ class YaalMLP {
         // Result is a (2F+1, 2F+1) weight map
         // Then compute the average direction weighted by the weight map
         Eigen::array<Eigen::IndexPair<int>, 1> product_dims = {Eigen::IndexPair<int>(2, 0)};
+
         Tensor<float, 3> weight_map = input_view.contract(direction_weights, product_dims)
                 .reshape(array<Eigen::Index, 3>{height, width, 1})
                 .broadcast(array<Eigen::Index, 3>{1, 1, 2});
