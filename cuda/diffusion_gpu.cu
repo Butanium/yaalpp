@@ -3,20 +3,18 @@
 #include "../utils/offset.hpp"
 #include <stdio.h>
 
-__global__ void filterApplyColKernel(float *input, float *output, int width, int height, int channels, int filter_size, float *col_filter) {
+__global__ void filterApplyColKernel(float *input, float *output, int width, int height, int channels, Offset offset, int filter_size, float *col_filter) {
   // x = width, y = height, z = channels
   // ORDER : height -> width -> channels
   int ix = blockIdx.x * blockDim.x + threadIdx.x;
   int iy = blockIdx.y * blockDim.y + threadIdx.y;
   int ic = blockIdx.z * blockDim.z + threadIdx.z;
 
-  printf("kernel is ok ?\n");
-  
-  for (int x = ix; x < width; x += gridDim.x * blockDim.x) {
-    for (int y = iy; y < height; y += gridDim.y * blockDim.y) {
+  for (int x = ix; x < width - offset.right; x += gridDim.x * blockDim.x) {
+    for (int y = iy; y < height - offset.bottom; y += gridDim.y * blockDim.y) {
       for(int c = ic; c < channels; c += gridDim.z * blockDim.z) {
-        // if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) { // Additional check useful ?
-        if (x < width && y < height && c < channels) {
+        if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) { // Additional check useful ?
+        // if (x < width && y < height && c < channels) {
           int index = ( c * width + x ) * height + y;
 
           int y_start = (c * width + x) * height;
@@ -68,12 +66,6 @@ __global__ void filterApplyRowKernel(float *input, float *output, int width, int
 
 
 void cudaFilterApply(const float *input, float *output, int width, int height, int channels, int start_channels, Offset offset, int filter_size, float *row_filter, float *col_filter) {
-  
-  // gpu exists ?
-  struct cudaDeviceProp properties;
-  cudaGetDeviceProperties(&properties, 0);
-  printf("cuda device %d - %d\n", properties.multiProcessorCount, properties.maxThreadsPerBlock);
-
   int num_channels = channels - start_channels;
 
   float *d_input, *d_tmp, *d_row_filter, *d_col_filter;
@@ -92,12 +84,12 @@ void cudaFilterApply(const float *input, float *output, int width, int height, i
   cudaMemcpy(d_col_filter, col_filter, filter_size_bytes, cudaMemcpyHostToDevice);
 
   // run row & col kernels
-  filterApplyColKernel<<<dim3(16, 16, 16), dim3(16, 16, 16)>>>(d_tmp, d_input, width, height, num_channels, filter_size, d_col_filter);
-  filterApplyRowKernel<<<dim3(16, 16, 16), dim3(16, 16, 16)>>>(d_input, d_tmp, width, height, num_channels, offset, filter_size, d_row_filter);
+  filterApplyColKernel<<<dim3(16, 16, num_channels), dim3(16, 16, 1)>>>(d_tmp, d_input, width, height, num_channels, offset, filter_size, d_col_filter);
+  filterApplyRowKernel<<<dim3(16, 16, num_channels), dim3(16, 16, 1)>>>(d_input, d_tmp, width, height, num_channels, offset, filter_size, d_row_filter);
 
   // kernel successful ?
-  cudaError_t err = cudaGetLastError();
-  printf("Error : %s\n", cudaGetErrorString(err));
+  // cudaError_t err = cudaGetLastError();
+  // printf("Error : %s\n", cudaGetErrorString(err));
 
   // Copy data back to host
   cudaMemcpy(output + start_channels * width * height, d_input, size, cudaMemcpyDeviceToHost);
