@@ -1,3 +1,5 @@
+#pragma once
+
 struct Offset {
     // stores the offset of the top, bottom, left, and right of the map, for padding and shared bands
     int top;
