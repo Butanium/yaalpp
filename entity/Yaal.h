@@ -5,8 +5,6 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../Constants.h"
-// TODO : can remove ?
-#include <iostream>
 
 #ifndef YAALPP_CREATURE_H
 #define YAALPP_CREATURE_H
@@ -111,7 +109,7 @@ public:
 
 //    float max_size;
 //    float init_size;
-    static thread_local std::mt19937 generator;
+    static std::mt19937 generator;
 };
 
 /** The state of a Yaal.
@@ -140,7 +138,7 @@ public:
 
     Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body);
 
-    static thread_local std::mt19937 generator;
+    static std::mt19937 generator;
 
 /**
      * Generate a random Yaal
