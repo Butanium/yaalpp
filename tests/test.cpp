@@ -323,6 +323,7 @@ TEST_CASE("ENVIRONMENT") {
         int num_plant = 200;
         int num_steps = 60;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        env.diffusion_filter.use_cuda = true;
         for (int i = 0; i < num_yaal; i++) {
             Yaal yaal = Yaal::random(4);
             yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
