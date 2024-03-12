@@ -22,7 +22,7 @@ using Eigen::Tensor;
 Tensor<float, 1> GaussianFilter(int size, float sigma);
 
 class SeparableFilter {
-private:
+public:
     Tensor<float, 2> row_filters;
     Tensor<float, 2> col_filters;
     int filter_size;
@@ -30,7 +30,6 @@ private:
     int border_condition;
     bool skip_color_channels;
 
-public:
     SeparableFilter(int filter_size, int nb_channels);
 
     SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma);
