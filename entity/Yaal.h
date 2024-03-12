@@ -48,6 +48,7 @@ class YaalMLP {
         // Result is a (2F+1, 2F+1) weight map
         // Then compute the average direction weighted by the weight map
         Eigen::array<Eigen::IndexPair<int>, 1> product_dims = {Eigen::IndexPair<int>(2, 0)};
+
         Tensor<float, 3> weight_map = input_view.contract(direction_weights, product_dims)
                 .reshape(array<Eigen::Index, 3>{height, width, 1})
                 .broadcast(array<Eigen::Index, 3>{1, 1, 2});
@@ -108,7 +109,7 @@ public:
 
 //    float max_size;
 //    float init_size;
-    static thread_local std::mt19937 generator;
+    static std::mt19937 generator;
 };
 
 /** The state of a Yaal.
@@ -137,7 +138,7 @@ public:
 
     Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body);
 
-    static thread_local std::mt19937 generator;
+    static std::mt19937 generator;
 
 /**
      * Generate a random Yaal
@@ -163,7 +164,7 @@ public:
         position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
     }
 
-    void setRandomPosition(const Vec2 &min, const Vec2 &max);
+    void set_random_position(const Vec2 &min, const Vec2 &max);
 
     /**
      * Bound the Yaal's position between min and max

@@ -6,8 +6,6 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <utility>
-#include <iostream>
-#include "../Constants.h"
 
 
 using Eigen::Tensor;
@@ -47,9 +45,8 @@ Yaal::Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3
         position(position),
         genome(genome), body(body) {}
 
-// TODO : is it ok with openmp ?
-thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
-thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
+std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
 
 /**
  * Generate a body with a given signature
@@ -106,7 +103,7 @@ Yaal Yaal::random(int num_channels, const Vec2 &position) {
     return {position, genome, genome.generate_body()};
 }
 
-void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
+void Yaal::set_random_position(const Vec2 &min, const Vec2 &max) {
     std::uniform_real_distribution<float> x_rng(min.x(), max.x());
     std::uniform_real_distribution<float> y_rng(min.y(), max.y());
     position = {x_rng(generator), y_rng(generator)};

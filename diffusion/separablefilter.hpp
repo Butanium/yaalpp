@@ -22,7 +22,7 @@ using Eigen::Tensor;
 Tensor<float, 1> GaussianFilter(int size, float sigma);
 
 class SeparableFilter {
-private:
+public:
     Tensor<float, 2> row_filters;
     Tensor<float, 2> col_filters;
     int filter_size;
