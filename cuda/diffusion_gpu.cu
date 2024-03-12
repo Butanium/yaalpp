@@ -70,8 +70,8 @@ void cudaFilterApply(float *input, float *output, int width, int height, int cha
   cudaMemcpy(d_col_filter, col_filter, filter_size_bytes, cudaMemcpyHostToDevice);
 
   // run row & col kernels
-  filterApplyRowKernel<<<dim3((height + 16 - 1) / 16, (width + 16 - 1) / 16, (num_channels + 16 - 1) / 16), dim3(16, 16, 16)>>>(d_input, d_tmp, width, height, num_channels, filter_size, d_row_filter);
-  filterApplyColKernel<<<dim3((height + 16 - 1) / 16, (width + 16 - 1) / 16, (num_channels + 16 - 1) / 16), dim3(16, 16, 16)>>>(d_tmp, d_input, width, height, num_channels, filter_size, d_col_filter);
+  filterApplyRowKernel<<<dim3((height + 16 - 1) / 16, (width + 16 - 1) / 16, (num_channels + 16 - 1) / 16), dim3(16, 16, 16)>>>(d_input, d_tmp, width, height, num_channels, offset, filter_size, d_row_filter);
+  filterApplyColKernel<<<dim3((height + 16 - 1) / 16, (width + 16 - 1) / 16, (num_channels + 16 - 1) / 16), dim3(16, 16, 16)>>>(d_tmp, d_input, width, height, num_channels, offset, filter_size, d_col_filter);
 
   // Copy data back to host
   cudaMemcpy(output + start_channels * width * height, d_input, size, cudaMemcpyDeviceToHost);
