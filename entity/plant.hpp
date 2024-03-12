@@ -8,8 +8,9 @@ using Eigen::Tensor;
 using Vec2 = Eigen::Vector2f;
 
 
-class Plant{
+class Plant {
     static Tensor<float, 3> default_body(int size, int num_channels);
+
 public:
     static std::mt19937 generator;
     Vec2 position;
@@ -17,5 +18,7 @@ public:
 
     Plant(Vec2 &&position, Tensor<float, 3> &&body);
 
-    static Plant random_plant(int num_channels, int height, int width);
+    void set_random_position(const Vec2 &min, const Vec2 &max);
+
+    Plant(int num_channels);
 };

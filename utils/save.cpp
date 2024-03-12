@@ -87,11 +87,11 @@ json plant_to_json(const Plant &plant) {
     return j;
 }
 
-Plant json_to_plant(const json &johnson) {
+Plant json_to_plant(const json &johnson, int num_channels) {
     Vec2 position(johnson["pos"]["x"], johnson["pos"]["y"]);
     // TODO?: De comment this if plant bodies are anything else than default
     //auto body = json_to_tensor<3>(johnson["body"]);
-    Plant plant = Plant::random_plant(0, 0);
+    Plant plant = Plant(num_channels);
     plant.position = position;
     return plant;
 }
@@ -238,7 +238,7 @@ Environment load_environment(const std::string &path) {
     json plant_json = j["plants"];
     std::vector<Plant> plants;
     for (auto &plant_j : plant_json) {
-        Plant plant = json_to_plant(plant_j);
+        Plant plant = json_to_plant(plant_j, channels);
         plants.push_back(plant);
     }
 

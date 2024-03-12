@@ -103,7 +103,7 @@ Yaal Yaal::random(int num_channels, const Vec2 &position) {
     return {position, genome, genome.generate_body()};
 }
 
-void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
+void Yaal::set_random_position(const Vec2 &min, const Vec2 &max) {
     std::uniform_real_distribution<float> x_rng(min.x(), max.x());
     std::uniform_real_distribution<float> y_rng(min.y(), max.y());
     position = {x_rng(generator), y_rng(generator)};

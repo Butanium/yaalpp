@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);
         int ms = Constants::Yaal::MAX_SIZE;
-        yaal.setRandomPosition(Vec2(ms, ms), Vec2(width - ms, height - ms));
+        yaal.set_random_position(Vec2(ms, ms), Vec2(width - ms, height - ms));
         env.yaals.push_back(yaal);
     }
     for (int t = 0; t < timesteps; t++) {

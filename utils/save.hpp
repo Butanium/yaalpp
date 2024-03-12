@@ -46,7 +46,7 @@ json plant_to_json(const Plant &plant);
 /**
  * Convert a json object to a plant
  */
-Plant json_to_plant(const json &johnson);
+Plant json_to_plant(const json &johnson, int num_channels);
 
 /**
  * Convert a yaal to a json object

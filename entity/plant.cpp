@@ -28,18 +28,12 @@ Plant::Plant(Vec2 &&position, Tensor<float, 3> &&body) :
 
 std::mt19937 Plant::generator = std::mt19937(std::random_device{}());
 
-Plant Plant::random_plant(int num_channels, int height, int width) {
-    // Create a body with a green circle in the middle
-    Tensor<float, 3> body = default_body(Constants::Yaal::MIN_SIZE, num_channels);
-
-    // Random position
-    std::uniform_real_distribution<float> x_rng((float) Constants::Yaal::MAX_FIELD_OF_VIEW,
-                                                (float) width - Constants::Yaal::MAX_FIELD_OF_VIEW);
-    std::uniform_real_distribution<float> y_rng((float) Constants::Yaal::MAX_FIELD_OF_VIEW,
-                                                (float) height - Constants::Yaal::MAX_FIELD_OF_VIEW);
-
-    float x = x_rng(Plant::generator);
-    float y = y_rng(Plant::generator);
-    Vec2 pos = {x, y};
-    return {std::move(pos), std::move(body)};
+void Plant::set_random_position(const Vec2 &min, const Vec2 &max) {
+    std::uniform_real_distribution<float> x_rng(min.x(), max.x());
+    std::uniform_real_distribution<float> y_rng(min.y(), max.y());
+    position = {x_rng(generator), y_rng(generator)};
 }
+
+Plant::Plant(int num_channels) :
+        position(Vec2(0, 0)),
+        body(default_body(Constants::Yaal::MIN_SIZE, num_channels)) {}

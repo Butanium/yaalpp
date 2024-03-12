@@ -164,7 +164,7 @@ public:
         position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
     }
 
-    void setRandomPosition(const Vec2 &min, const Vec2 &max);
+    void set_random_position(const Vec2 &min, const Vec2 &max);
 
     /**
      * Bound the Yaal's position between min and max
