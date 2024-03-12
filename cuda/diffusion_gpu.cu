@@ -5,23 +5,29 @@
 __global__ void filterApplyColKernel(float *input, float *output, int width, int height, int channels, Offset offset, int filter_size, float *col_filter) {
   // x = width, y = height, z = channels
   // ORDER : height -> width -> channels
-  int x = blockIdx.x * blockDim.x + threadIdx.x;
-  int y = blockIdx.y * blockDim.y + threadIdx.y;
-  int c = blockIdx.z * blockDim.z + threadIdx.z;
+  int ix = blockIdx.x * blockDim.x + threadIdx.x;
+  int iy = blockIdx.y * blockDim.y + threadIdx.y;
+  int ic = blockIdx.z * blockDim.z + threadIdx.z;
+  
+  for (int x = ix; x < width - offset.right; x += blockDim.x) {
+    for (int y = iy; y < height - offset.bottom; y += blockDim.y) {
+      for(int c = ic; c < channels; c += blockDim.z) {
+        if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
+          int index = ( c * width + x ) * height + y;
 
-  if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
-    int index = ( c * width + x ) * height + y;
+          int y_start = (c * width + x) * height;
+          int y_end = y_start + height;
 
-    int y_start = (c * width + x) * height;
-    int y_end = y_start + height;
+          output[index] = 0.0f;
+          for (int i = 0; i < filter_size; i++) {
+            int y_index = index - filter_size / 2 + i;
+            if (y_index < y_start) y_index = y_start;
+            if (y_index >= y_end) y_index = y_end - 1;
 
-    output[index] = 0.0f;
-    for (int i = 0; i < filter_size; i++) {
-      int y_index = index - filter_size / 2 + i;
-      if (y_index < y_start) y_index = y_start;
-      if (y_index >= y_end) y_index = y_end - 1;
-
-      output[index] += input[y_index] * col_filter[c * filter_size + i];
+            output[index] += input[y_index] * col_filter[c * filter_size + i];
+          }
+        }
+      }
     }
   }
 }
@@ -29,23 +35,29 @@ __global__ void filterApplyColKernel(float *input, float *output, int width, int
 __global__ void filterApplyRowKernel(float *input, float *output, int width, int height, int channels, Offset offset, int filter_size, float *row_filter) {
   // x = width, y = height, z = channels
   // ORDER : height -> width -> channels
-  int x = blockIdx.x * blockDim.x + threadIdx.x;
-  int y = blockIdx.y * blockDim.y + threadIdx.y;
-  int c = blockIdx.z * blockDim.z + threadIdx.z;
+  int ix = blockIdx.x * blockDim.x + threadIdx.x;
+  int iy = blockIdx.y * blockDim.y + threadIdx.y;
+  int ic = blockIdx.z * blockDim.z + threadIdx.z;
 
-  if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
-    int index = ( c * width + x ) * height + y;
+  for (int x = ix; x < width - offset.right; x += blockDim.x) {
+    for (int y = iy; y < height - offset.bottom; y += blockDim.y) {
+      for(int c = ic; c < channels; c += blockDim.z) {
+        if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
+          int index = ( c * width + x ) * height + y;
 
-    int x_start = (c * width + 0) * height + y;
-    int x_end = x_start + x * height;
+          int x_start = (c * width + 0) * height + y;
+          int x_end = x_start + x * height;
 
-    output[index] = 0.0f;
-    for (int i = 0; i < filter_size; i++) {
-      int x_index = index + ( i - filter_size / 2 ) * height;
-      if (x_index < x_start) x_index = x_start;
-      if (x_index >= x_end) x_index = x_end - 1;
+          output[index] = 0.0f;
+          for (int i = 0; i < filter_size; i++) {
+            int x_index = index + ( i - filter_size / 2 ) * height;
+            if (x_index < x_start) x_index = x_start;
+            if (x_index >= x_end) x_index = x_end - 1;
 
-      output[index] += input[x_index] * row_filter[c * filter_size + i];
+            output[index] += input[x_index] * row_filter[c * filter_size + i];
+          }
+        }
+      }
     }
   }
 }
