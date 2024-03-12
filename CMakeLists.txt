@@ -11,9 +11,13 @@ add_compile_options(-Wall) # for all warnings
 FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.5.2 # or a later release
+        GIT_TAG v3.5.2
 )
 FetchContent_MakeAvailable(Catch2)
+
+# JSON library
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
 
 # Tensor library
 FetchContent_Declare(
@@ -69,7 +73,7 @@ add_executable(tests tests/test.cpp
         utils/save.cpp
 
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -97,7 +101,7 @@ add_executable(yaalpp main.cpp
         utils/save.hpp
         utils/save.cpp
 )
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
 
 add_executable(example examples/tensor_broadcast_mul.cpp
         utils/circle.cpp
