@@ -1,3 +1,4 @@
+#include <cstdio>
 #define CATCH_CONFIG_RUNNER
 
 #include <catch2/catch_session.hpp>
@@ -343,7 +344,9 @@ TEST_CASE("ENVIRONMENT") {
         }
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
-            std::string frame_name = "test_output/frames/frame_" + std::to_string(i) + ".png";
+            std::string s = "0000";
+            sprintf(s.data(), "%04d", i); 
+            std::string frame_name = "test_output/frames/frame_" + s + ".png";
             // View the env to send the 1, 2, 3 channels instead of 0-3
             auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
             Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1},
