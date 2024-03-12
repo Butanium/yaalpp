@@ -88,8 +88,8 @@ void cudaFilterApply(const float *input, float *output, int width, int height, i
   filterApplyRowKernel<<<dim3(16, 16, num_channels), dim3(16, 16, 1)>>>(d_input, d_tmp, width, height, num_channels, offset, filter_size, d_row_filter);
 
   // kernel successful ?
-  // cudaError_t err = cudaGetLastError();
-  // printf("Error : %s\n", cudaGetErrorString(err));
+  cudaError_t err = cudaGetLastError();
+  printf("Error : %s\n", cudaGetErrorString(err));
 
   // Copy data back to host
   cudaMemcpy(output + start_channels * width * height, d_input, size, cudaMemcpyDeviceToHost);
