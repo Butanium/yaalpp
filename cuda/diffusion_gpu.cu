@@ -63,7 +63,7 @@ __global__ void filterApplyRowKernel(float *input, float *output, int width, int
 }
 
 
-void cudaFilterApply(float *input, float *output, int width, int height, int channels, int start_channels, Offset offset, int filter_size, float *row_filter, float *col_filter) {
+void cudaFilterApply(const float *input, float *output, int width, int height, int channels, int start_channels, Offset offset, int filter_size, float *row_filter, float *col_filter) {
   int num_channels = channels - start_channels;
 
   float *d_input, *d_tmp, *d_row_filter, *d_col_filter;
