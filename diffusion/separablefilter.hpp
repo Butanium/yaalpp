@@ -50,6 +50,11 @@ public:
 
     void apply(const Tensor<float, 3> &input, Tensor<float, 3> &output, Offset offset);
 
+    // Apply the filter to the input tensor and store the result in the output tensor using CUDA
+    void cudaApply(const Tensor<float, 3>& input, Tensor<float, 3>& output);
+
+    void cudaApply(const Tensor<float, 3>& input, Tensor<float, 3>& output, Offset offset);
+
     // Apply the filter inplace to the input tensor
     void apply_inplace(Tensor<float, 3>& input) const;
 

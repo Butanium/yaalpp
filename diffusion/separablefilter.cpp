@@ -1,4 +1,5 @@
 #include "separablefilter.hpp"
+#include "../cuda/diffusion_gpu.h"
 #include <cmath>
 #include <utility>
 
@@ -160,6 +161,19 @@ void SeparableFilter::apply(
             }
         }
     }
+}
+
+void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output) {
+    cudaApply(input, output, Offset(0, 0, 0, 0));
+}
+
+void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output, Offset offset) {
+    int height = input.dimension(0);
+    int width = input.dimension(1);
+    int channels = input.dimension(2);
+    int start_c = skip_color_channels ? 3 : 0;
+
+    cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters.data(), col_filters.data());
 }
 
 void SeparableFilter::apply_inplace(Tensor<float, 3> &input) const {
