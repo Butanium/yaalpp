@@ -204,6 +204,14 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
     }
 }
 
+void QuadTree::add_plants(const std::vector<Plant> &plants) {
+    int nb_plants = plants.size();
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < nb_plants; i++) {
+        insert(plants[i].position);
+    }
+}
+
 void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints) {
     int nb_Yaals = (int) yaals.size();
 #pragma omp parallel for schedule(static)

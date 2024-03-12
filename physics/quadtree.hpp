@@ -10,6 +10,7 @@
 #include <Eigen/Core>
 #include <omp.h>
 #include "../entity/Yaal.h"
+#include "../entity/plant.hpp"
 
 using Vec2 = Eigen::Vector2f;
 
@@ -71,6 +72,9 @@ public:
 
     // Given a set of Yaals, insert them into the quadtree.
     void initialize(const std::vector<Yaal>& yaals);
+
+    // Given a set of Plants, insert them into the quadtree.
+    void add_plants(const std::vector<Plant>& plants);
 
     void get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints);
 
