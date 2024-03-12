@@ -67,6 +67,8 @@ add_executable(tests tests/test.cpp
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
+        utils/mpi_decomposition.cpp
+        utils/mpi_decomposition.hpp
 
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
@@ -96,6 +98,8 @@ add_executable(yaalpp main.cpp
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
+        utils/mpi_decomposition.cpp
+        utils/mpi_decomposition.hpp
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
 
@@ -109,5 +113,7 @@ add_executable(example examples/tensor_broadcast_mul.cpp
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
+        utils/mpi_decomposition.cpp
+        utils/mpi_decomposition.hpp
 )
 target_link_libraries(example PRIVATE Eigen3::Eigen)
