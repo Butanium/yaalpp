@@ -9,9 +9,9 @@ __global__ void filterApplyColKernel(float *input, float *output, int width, int
   int iy = blockIdx.y * blockDim.y + threadIdx.y;
   int ic = blockIdx.z * blockDim.z + threadIdx.z;
   
-  for (int x = ix; x < width - offset.right; x += gridDim.x) {
-    for (int y = iy; y < height - offset.bottom; y += gridDim.y) {
-      for(int c = ic; c < channels; c += gridDim.z) {
+  for (int x = ix; x < width - offset.right; x += gridDim.x * blockDim.x) {
+    for (int y = iy; y < height - offset.bottom; y += gridDim.y * blockDim.y) {
+      for(int c = ic; c < channels; c += gridDim.z * blockDim.z) {
         if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
           int index = ( c * width + x ) * height + y;
 
@@ -39,9 +39,9 @@ __global__ void filterApplyRowKernel(float *input, float *output, int width, int
   int iy = blockIdx.y * blockDim.y + threadIdx.y;
   int ic = blockIdx.z * blockDim.z + threadIdx.z;
 
-  for (int x = ix; x < width - offset.right; x += gridDim.x) {
-    for (int y = iy; y < height - offset.bottom; y += gridDim.y) {
-      for(int c = ic; c < channels; c += gridDim.z) {
+  for (int x = ix; x < width - offset.right; x += gridDim.x * blockDim.x) {
+    for (int y = iy; y < height - offset.bottom; y += gridDim.y * blockDim.y) {
+      for(int c = ic; c < channels; c += gridDim.z * blockDim.z) {
         if (offset.left <= x && x < width - offset.right && offset.top <= y && y < height - offset.bottom && c < channels) {
           int index = ( c * width + x ) * height + y;
 
