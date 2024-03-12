@@ -352,5 +352,48 @@ TEST_CASE("ENVIRONMENT") {
         for (auto &pos: positions) {
             std::cerr << pos.x() << " " << pos.y() << std::endl;
         }
+    } SECTION("Determinism") {
+        using Constants::Yaal::MAX_SIZE;
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 100;
+        int width = 100;
+        int num_yaal = 50;
+        int num_steps = 1;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        for (int i = 0; i < num_yaal; i++) {
+            Yaal yaal = Yaal::random(4);
+            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+            env.add_yaal(yaal);
+        }
+        for (auto &yaal: env.yaals) {
+            env.add_to_map(yaal);
+        }
+        for (int i = 0; i < num_steps; i++) {
+            env.step();
+        }
+
+        // Save and load the environment
+        std::string save_path = "./save/";
+        ensure_directory_exists(save_path);
+        save_environment(env, save_path, true);
+
+        Environment env2 = load_environment(save_path);
+        Environment env3 = load_environment(save_path);
+
+        env3.diffusion_filter.use_cuda = true; // Set filter on gpu
+
+        int num_steps2 = 100;
+        for (int i = 0; i < num_steps2; i++) {
+            env2.step();
+        }
+
+        for (int i = 0; i < num_steps2; i++) {
+            env3.step();
+        }
+
+        // use is_close :
+        REQUIRE(is_close(env2.map, env3.map));
     }
 }

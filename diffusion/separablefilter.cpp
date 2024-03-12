@@ -35,7 +35,8 @@ SeparableFilter::SeparableFilter(int filter_size, int nb_channels, bool skip_col
 
 SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma) :
         filter_size(filter_size), nb_channels(nb_channels), border_condition(border_condition),
-        skip_color_channels(skip_color_channels) {
+        skip_color_channels(skip_color_channels),
+        use_cuda(false) {
     // the three first channels are for color, and are therefore not subject to pheromone diffusion.
     row_filters = Tensor<float, 2>(nb_channels, filter_size);
     col_filters = Tensor<float, 2>(nb_channels, filter_size);
@@ -110,6 +111,10 @@ void SeparableFilter::apply(
         const Tensor<float, 3> &input,
         Tensor<float, 3> &output,
         Offset offset) {
+  if (use_cuda) {
+    cudaApply(input, output, offset);
+    return;
+  }
 
     // to avoid confusion :
     // indexing : i j c or y x c or height width channels
@@ -163,24 +168,17 @@ void SeparableFilter::apply(
     }
 }
 
-void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output) {
-    cudaApply(input, output, Offset(0, 0, 0, 0));
-}
 
-void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output, Offset offset) {
-    int height = input.dimension(0);
-    int width = input.dimension(1);
-    int channels = input.dimension(2);
-    int start_c = skip_color_channels ? 3 : 0;
-
-    cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters.data(), col_filters.data());
-}
-
-void SeparableFilter::apply_inplace(Tensor<float, 3> &input) const {
+void SeparableFilter::apply_inplace(Tensor<float, 3> &input) {
     apply_inplace(input, Offset(0, 0, 0, 0));
 }
 
-void SeparableFilter::apply_inplace(Tensor<float, 3> &input, Offset offset) const {
+void SeparableFilter::apply_inplace(Tensor<float, 3> &input, Offset offset) {
+    if (use_cuda) {
+        cudaApply(input, input, offset);
+        return;
+    }
+
     int height = input.dimension(0);
     int width = input.dimension(1);
     int channels = input.dimension(2);
@@ -242,4 +240,17 @@ void SeparableFilter::apply_inplace(Tensor<float, 3> &input, Offset offset) cons
             }
         }
     }
+}
+
+void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output) {
+    cudaApply(input, output, Offset(0, 0, 0, 0));
+}
+
+void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> &output, Offset offset) {
+    int height = input.dimension(0);
+    int width = input.dimension(1);
+    int channels = input.dimension(2);
+    int start_c = skip_color_channels ? 3 : 0;
+
+    cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters.data(), col_filters.data());
 }

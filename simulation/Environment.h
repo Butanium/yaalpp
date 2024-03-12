@@ -26,7 +26,7 @@ public:
     const Offset offset_padding;
     const Offset offset_sharing;
     const Vec2i top_left_position;
-    const SeparableFilter diffusion_filter;
+    SeparableFilter diffusion_filter;
     std::vector<Yaal> yaals = {};
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;

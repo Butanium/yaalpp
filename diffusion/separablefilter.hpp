@@ -31,6 +31,8 @@ private:
     bool skip_color_channels;
 
 public:
+    bool use_cuda;
+
     SeparableFilter(int filter_size, int nb_channels);
 
     SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma);
@@ -56,7 +58,7 @@ public:
     void cudaApply(const Tensor<float, 3>& input, Tensor<float, 3>& output, Offset offset);
 
     // Apply the filter inplace to the input tensor
-    void apply_inplace(Tensor<float, 3>& input) const;
+    void apply_inplace(Tensor<float, 3>& input);
 
-    void apply_inplace(Tensor<float, 3>& input, Offset offset) const;
+    void apply_inplace(Tensor<float, 3>& input, Offset offset);
 };
