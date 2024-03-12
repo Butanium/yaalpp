@@ -49,6 +49,10 @@ SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_co
         row_filters.chip(i, 0) = GaussianFilter(filter_size, sigma[i]);
         col_filters.chip(i, 0) = GaussianFilter(filter_size, sigma[i]);
     }
+
+    Eigen::array<int, 2> shuffling({1,0});
+    row_filters_transpose = row_filters.shuffle(shuffling);
+    col_filters_transpose = col_filters.shuffle(shuffling);
 }
 
 SeparableFilter::~SeparableFilter() = default;
@@ -255,10 +259,5 @@ void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> 
     int channels = input.dimension(2);
     int start_c = skip_color_channels ? 3 : 0;
 
-
-    Eigen::array shuffling({1,0});
-    Tensor<float, 2> row_filters_transposed = row_filters.shuffle(shuffling);
-    Tensor<float, 2> col_filters_transposed = col_filters.shuffle(shuffling);
-
-    cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters_transposed.data(), col_filters_transposed.data());
+    cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters_transpose.data(), col_filters_transpose.data());
 }

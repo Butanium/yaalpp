@@ -25,6 +25,10 @@ class SeparableFilter {
 public:
     Tensor<float, 2> row_filters;
     Tensor<float, 2> col_filters;
+
+    Tensor<float, 2> row_filters_transpose;
+    Tensor<float, 2> col_filters_transpose;
+
     int filter_size;
     int nb_channels;
     int border_condition;
