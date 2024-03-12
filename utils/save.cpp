@@ -248,8 +248,6 @@ Environment load_environment(const std::string &path) {
         json map_j;
         map_i >> map_j;
         Tensor<float, 3> map = json_to_tensor<3>(map_j);
-        std::cout << "map dimensions: " << map.dimensions() << std::endl;
-        std::cout << "map size: " << map.size() << std::endl;
         auto env = Environment(
                 std::move(map),
                 decay_factors,
@@ -262,8 +260,6 @@ Environment load_environment(const std::string &path) {
                 std::move(yaals),
                 std::move(plants)
         );
-        std::cout << "env map dimensions: " << env.map.dimensions() << std::endl;
-        std::cout << "env map size: " << env.map.size() << std::endl;
         return env;
     } else {
         return Environment(
