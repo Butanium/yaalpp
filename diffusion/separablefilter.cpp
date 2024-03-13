@@ -30,11 +30,12 @@ SeparableFilter::SeparableFilter(int filter_size, int nb_channels) :
         SeparableFilter(filter_size, nb_channels, BORDER_CONDITION_CLAMP, false, std::vector<float>(nb_channels, 1)) {
 }
 
-SeparableFilter::SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels, std::vector<float> sigma) :
+SeparableFilter::SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels, std::vector<float> &&sigma) :
         SeparableFilter(filter_size, nb_channels, BORDER_CONDITION_CLAMP, skip_color_channels, std::move(sigma)) {
 }
 
-SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma) :
+SeparableFilter::SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> &&sigma_) :
+        sigma(std::move(sigma_)),
         filter_size(filter_size), nb_channels(nb_channels), border_condition(border_condition),
         skip_color_channels(skip_color_channels),
         use_cuda(false) {

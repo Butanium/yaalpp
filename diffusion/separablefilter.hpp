@@ -23,6 +23,8 @@ Tensor<float, 1> GaussianFilter(int size, float sigma);
 
 class SeparableFilter {
 public:
+    std::vector<float> sigma;
+
     Tensor<float, 2> row_filters;
     Tensor<float, 2> col_filters;
 
@@ -39,9 +41,9 @@ public:
 
     SeparableFilter(int filter_size, int nb_channels);
 
-    SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> sigma);
+    SeparableFilter(int filter_size, int nb_channels, int border_condition, bool skip_color_channels, std::vector<float> &&sigma_);
 
-    SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels, std::vector<float> sigma);
+    SeparableFilter(int filter_size, int nb_channels, bool skip_color_channels, std::vector<float> &&sigma);
 
     ~SeparableFilter();
 
