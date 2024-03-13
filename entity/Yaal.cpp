@@ -6,111 +6,104 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <utility>
-#include "../Constants.h"
 
 
 using Eigen::Tensor;
 using Eigen::array;
 using Vec2 = Eigen::Vector2f;
 
-Vec2 YaalMLP::get_direction(const Tensor<float, 3> &input_view) const {
-    // direction_weights : (C)
-    // input_view : (2F+1, 2F+1, C)
-    // direction : (1,1)
-    // Matrix product between each "pixel" of the view and the weights
-    // Result is a (2F+1, 2F+1) weight map
-    // Then compute the average direction weighted by the weight map
-    Eigen::array<Eigen::IndexPair<int>, 1> product_dims = {Eigen::IndexPair<int>(2, 0)};
-    Tensor<float, 3> weight_map = input_view.contract(direction_weights, product_dims)
-            .reshape(array<Eigen::Index, 3>{input_view.dimension(0), input_view.dimension(1), 1})
-            .broadcast(array<Eigen::Index, 3>{1, 1, 2});
-    // Create D: (2F+1, 2F+1, 2). D_ij is the direction from the F,F pixel to the i,j pixel
-    // Init with the same height and width as the input view
-    Tensor<float, 3> directions(input_view.dimension(0), input_view.dimension(1), 2);
-    // Fill D with the direction vectors
+Tensor<float, 3> direction_matrix(int height, int width) {
+    // Compute the direction matrix s.t. D_ij is the normalized direction from the center to the i,j pixel
+    int dims[] = {height, width};
+    Tensor<float, 3> directions(height, width, 2);
     directions.setZero();
     for (int d = 0; d < 2; d++) {
-        auto dim = input_view.dimension(d);
-        float center;
-        if (dim % 2 == 0) {
-            center = (float) dim / 2.f - 0.5f;
-        } else {
-            center = (float) (dim / 2);
-        }
-        for (int i = 0; i < input_view.dimension(d); i++) {
-            float cst;
-            if (d == 0) {
-                cst = (float) (i - center);
-            } else {
-                cst = (float) (center - i);
-            }
-            directions.chip(d, 2).chip(i, 1 - d).setConstant(cst);
+        float center = (float) dims[d] / 2.f - 0.5f;
+        for (int i = 0; i < dims[d]; i++) {
+            directions.chip(d, 2).chip(i, 1 - d).setConstant((float) (i - center));
         }
     }
-    // Divide each direction vector by its norm
     Tensor<float, 3> d_norms = directions.square().sum(array<Eigen::Index, 1>{2}).sqrt().reshape(
-            array<Eigen::Index, 3>{input_view.dimension(0), input_view.dimension(1), 1}).broadcast(
+            array<Eigen::Index, 3>{height, width, 1}).broadcast(
             array<Eigen::Index, 3>{1, 1, 2});
-    if (input_view.dimension(0) % 2 && input_view.dimension(1) % 2) {
-        d_norms.chip(input_view.dimension(0) / 2, 0).chip(input_view.dimension(1) / 2, 0).setConstant(1);
+    if (height % 2 && width % 2) {
+        d_norms.chip(height / 2, 0).chip(width / 2, 0).setConstant(1);
     }
-    directions *= weight_map / d_norms;
-    Tensor<float, 0> x = directions.chip(0, 2).mean();
-    Tensor<float, 0> y = directions.chip(1, 2).mean();
-    Vec2 direction = {x(0), y(0)};
-    auto norm = direction.norm();
-    if (norm < Constants::EPSILON) {
-        return Vec2::Zero();
-    }
-    direction.normalize();
-    return direction;
-}
-
-YaalDecision YaalMLP::evaluate(const Tensor<float, 3> &input_view) const {
-    return YaalDecision{
-            .action = YaalAction::Nop,
-            .direction = get_direction(input_view),
-            .speed_factor = 1.0f,
-    };
-}
-
-void Yaal::update(const Tensor<float, 3> &input_view) {
-    auto decision = genome.brain.evaluate(input_view);
-    position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
+    return directions / d_norms;
 }
 
 void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
     position = position.cwiseMax(min).cwiseMin(max);
 }
 
-Yaal::Yaal(Vec2 &&position, YaalGenome &&genome) : position(std::move(position)), genome(std::move(genome)) {}
+Yaal::Yaal(Vec2 &&position, YaalGenome &&genome, Tensor<float, 3> &&body) :
+        position(std::move(position)),
+        genome(std::move(genome)),
+        body(std::move(body)) {}
 
-Yaal::Yaal(const Vec2 &position, const YaalGenome &genome) : position(position), genome(genome) {}
+Yaal::Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body) :
+        position(position),
+        genome(genome), body(body) {}
 
-// TODO : is it ok with openmp ?
-thread_local std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
-thread_local std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
+std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+
+/**
+ * Generate a body with a given signature
+ * @param size The size of the body
+ * @param signature The signature of the yaal (i.e. the color and smell)
+ */
+Tensor<float, 3> YaalGenome::generate_body() {
+    Tensor<float, 3> body(size, size, (long) signature.size());
+    for (int c = 0; c < signature.size(); c++)
+        body.chip(c, 2).setConstant(signature[c]);
+    // Apply circle mask
+    float center = (float) size / 2.f - 0.5f;
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            float dx = (float) i - center;
+            float dy = (float) j - center;
+            auto slice = body.chip(i, 0).chip(j, 0);
+            if (dx * dx + dy * dy > (float) (size * size) / 4.f) {
+                slice.setZero();
+            } else {
+                // Interpolate between *= 0.5 and *= 1
+                slice = slice * (0.5f + 0.5f * (1 - std::sqrt(dx * dx + dy * dy) / ((float) size / 2.f)));
+            }
+        }
+    }
+    return body;
+}
+
 
 YaalGenome YaalGenome::random(int num_channels) {
     auto speed_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_SPEED, Constants::Yaal::MAX_SPEED);
     auto fov_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_FIELD_OF_VIEW,
                                                       Constants::Yaal::MAX_FIELD_OF_VIEW);
     auto size_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_SIZE, Constants::Yaal::MAX_SIZE);
+    auto signature_rng = std::uniform_real_distribution<float>(0, 1);
+    int size = size_rng(generator);
+    std::vector<float> signature = std::vector<float>(num_channels);
+    for (int i = 0; i < num_channels; i++) {
+        signature[i] = signature_rng(generator);
+    }
     return {
             .brain = YaalMLP{
                     .direction_weights = Tensor<float, 1>(num_channels).setRandom(),
             },
             .max_speed = speed_rng(generator),
             .field_of_view = fov_rng(generator),
-            .size = size_rng(generator),
+            .size = size,
+            .signature = signature
     };
 }
 
 Yaal Yaal::random(int num_channels, const Vec2 &position) {
-    return {position, YaalGenome::random(num_channels)};
+    auto genome = YaalGenome::random(num_channels);
+    return {position, genome, genome.generate_body()};
 }
 
-void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
+void Yaal::set_random_position(const Vec2 &min, const Vec2 &max) {
     std::uniform_real_distribution<float> x_rng(min.x(), max.x());
     std::uniform_real_distribution<float> y_rng(min.y(), max.y());
     position = {x_rng(generator), y_rng(generator)};
@@ -118,4 +111,8 @@ void Yaal::setRandomPosition(const Vec2 &min, const Vec2 &max) {
 
 Yaal Yaal::random(int num_channels) {
     return random(num_channels, Vec2::Zero());
+}
+
+Vec2 Yaal::top_left_position() const {
+    return position - Vec2((float) genome.size / 2.f, (float) genome.size / 2.f);
 }

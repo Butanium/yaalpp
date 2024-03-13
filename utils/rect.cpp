@@ -2,7 +2,7 @@
 #include "circle.hpp"
 
 #include <algorithm>
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include <utility>
 
 using Vec2 = Eigen::Vector2f;

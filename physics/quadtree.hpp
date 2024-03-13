@@ -4,12 +4,13 @@
 
 #pragma once
 
-#include "rect.hpp"
+#include "../utils/rect.hpp"
 #include <vector>
 #include <optional>
 #include <Eigen/Core>
 #include <omp.h>
 #include "../entity/Yaal.h"
+#include "../entity/plant.hpp"
 
 using Vec2 = Eigen::Vector2f;
 
@@ -45,6 +46,8 @@ private:
     // actually does the closest point search. The other is just here to initialize the optional and put a -1 in the call to this one.
     float closest(const Vec2& v, std::optional<Vec2> &bestPoint, float bestDist);
 
+    bool insert_aux(const Vec2 &v);
+
 public:
     // default capacity is 1 and default radius is 0
     explicit QuadTree(Rect&& rect);
@@ -58,7 +61,7 @@ public:
     ~QuadTree();
 
     // returns true if the point was inserted, false otherwise
-    bool insert(const Vec2& v);
+    void insert(const Vec2& v);
 
     // returns the closest point to v. Uses naive search (query all points within collision radius and return the naive closest)
     // If no points are found, returns
@@ -70,5 +73,9 @@ public:
     // Given a set of Yaals, insert them into the quadtree.
     void initialize(const std::vector<Yaal>& yaals);
 
-    void get_all_closest(const std::vector<Yaal> &yaals, Vec2* closestPoints);
+    // Given a set of Plants, insert them into the quadtree.
+    void add_plants(const std::vector<Plant>& plants);
+
+    void get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints);
+
 };

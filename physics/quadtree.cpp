@@ -3,15 +3,16 @@
 */
 
 #include "quadtree.hpp"
-#include "circle.hpp"
+#include "../utils/circle.hpp"
 #include <utility>
 #include <algorithm>
+#include <iostream>
 
 
 using Vec2 = Eigen::Vector2f;
 
 QuadTree::QuadTree(Rect &&rect, int max_capacity, float object_radius)
-        : rect(std::move(rect)), max_capacity(max_capacity), object_radius(object_radius) {
+        : max_capacity(max_capacity), rect(std::move(rect)), object_radius(object_radius) {
     subdivided = false;
     empty = true;
     n_points = 0;
@@ -52,7 +53,7 @@ void QuadTree::subdivide() {
 
     for (const Vec2 &v: points) {
         for (QuadTree *child: children) {
-            if (child->insert(v)) {
+            if (child->insert_aux(v)) {
                 break;
             }
         }
@@ -62,7 +63,7 @@ void QuadTree::subdivide() {
     subdivided = true;
 }
 
-bool QuadTree::insert(const Vec2 &v) {
+bool QuadTree::insert_aux(const Vec2 &v) {
     if (!rect.contains(v)) {
         return false;
     }
@@ -72,6 +73,13 @@ bool QuadTree::insert(const Vec2 &v) {
             // Magic !
             omp_unset_lock(&lock);
             goto insert_in_children;
+        }
+        for (Vec2 point: points) {
+            if (point.x() == v.x() && point.y() == v.y()) {
+                omp_unset_lock(&lock);
+                std::cerr << "Waning: Point already in quadtree" << std::endl;
+                return true;
+            }
         }
         if (n_points < max_capacity) {
             if (n_points == 0) {
@@ -86,20 +94,29 @@ bool QuadTree::insert(const Vec2 &v) {
         } else {
             subdivide();
             omp_unset_lock(&lock);
-            assert(insert(v));
+            assert(insert_aux(v));
             return true;
         }
     }
     insert_in_children:
     if (subdivided) {
         for (int i = 0; i < 4; i++) {
-            if (children[i]->insert(v)) {
+            if (children[i]->insert_aux(v)) {
                 return true;
             }
         }
         throw std::runtime_error("Failed to insert in all children");
     } else {
         throw std::runtime_error("Failed to insert in leaf");
+    }
+}
+
+void QuadTree::insert(const Vec2 &v) {
+    if (!rect.contains(v)) {
+        throw std::runtime_error("Point not in quadtree");
+    }
+    if (!insert_aux(v)) {
+        throw std::runtime_error("Failed to insert");
     }
 }
 
@@ -189,19 +206,29 @@ void QuadTree::initialize(const std::vector<Yaal> &yaals) {
      * If it is a leaf (whether full or not), insert the Yaal and delock the mutex.
      */
     int nb_Yaals = yaals.size();
-#pragma omp parallel for schedule(static)//TODO : check if static or dynamic scheduling is better
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < nb_Yaals; i++) {
         insert(yaals[i].position);
     }
 }
 
-void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, Vec2 *closestPoints) {
+void QuadTree::add_plants(const std::vector<Plant> &plants) {
+    int nb_plants = plants.size();
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < nb_plants; i++) {
+        insert(plants[i].position);
+    }
+}
+
+void QuadTree::get_all_closest(const std::vector<Yaal> &yaals, std::vector<Vec2> &closestPoints) {
     int nb_Yaals = (int) yaals.size();
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < nb_Yaals; i++) {
         std::optional<Vec2> closestPoint = closest(yaals[i].position);
         if (closestPoint.has_value()) {
             closestPoints[i] = closestPoint.value();
+        } else {
+            closestPoints[i] = yaals[i].position;
         }
     }
 }
