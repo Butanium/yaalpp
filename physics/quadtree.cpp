@@ -6,12 +6,13 @@
 #include "../utils/circle.hpp"
 #include <utility>
 #include <algorithm>
+#include <iostream>
 
 
 using Vec2 = Eigen::Vector2f;
 
 QuadTree::QuadTree(Rect &&rect, int max_capacity, float object_radius)
-        : rect(std::move(rect)), max_capacity(max_capacity), object_radius(object_radius) {
+        : max_capacity(max_capacity), rect(std::move(rect)), object_radius(object_radius) {
     subdivided = false;
     empty = true;
     n_points = 0;
@@ -72,6 +73,13 @@ bool QuadTree::insert_aux(const Vec2 &v) {
             // Magic !
             omp_unset_lock(&lock);
             goto insert_in_children;
+        }
+        for (Vec2 point: points) {
+            if (point.x() == v.x() && point.y() == v.y()) {
+                omp_unset_lock(&lock);
+                std::cerr << "Waning: Point already in quadtree" << std::endl;
+                return true;
+            }
         }
         if (n_points < max_capacity) {
             if (n_points == 0) {
