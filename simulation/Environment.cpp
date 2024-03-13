@@ -1,7 +1,6 @@
 //
 // Created by clementd on 09/02/24.
 //
-#pragma once
 
 #include <iostream>
 #include <utility>
@@ -23,7 +22,7 @@ Environment::Environment(int height, int width, int channels,
         width(width),
         global_height(height),
         global_width(width), // TODO: implement sharing
-        channels(channels),
+        num_channels(channels),
         offset_padding(
                 {.top =  MAX_FIELD_OF_VIEW, .bottom =  MAX_FIELD_OF_VIEW, .left =  MAX_FIELD_OF_VIEW, .right =  MAX_FIELD_OF_VIEW}),
         offset_sharing({.top = 0, .bottom = 0, .left = 0, .right = 0}),
@@ -44,7 +43,7 @@ Environment::Environment(int height, int width, int channels, Eigen::TensorMap<T
         width(width),
         global_height(global_height),
         global_width(global_width),
-        channels(channels),
+        num_channels(channels),
         offset_padding(
                 {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
         offset_sharing(
@@ -80,7 +79,7 @@ Environment::Environment(Tensor<float, 3> &&map_,
         height((int) map.dimension(0) - 2 * MAX_FIELD_OF_VIEW),
         width((int) map.dimension(1) - 2 * MAX_FIELD_OF_VIEW),
         global_height(global_height), global_width(global_width),
-        channels((int) map.dimension(2)),
+        num_channels((int) map.dimension(2)),
         offset_padding(
                 {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
         offset_sharing(
@@ -120,6 +119,21 @@ void Environment::add_to_map(const Yaal &yaal) {
     {
         slice += yaal.body;
     };
+}
+
+void Environment::create_yaals_and_plants(int num_yaal, int num_plant) {
+    using Constants::Yaal::MAX_SIZE;
+    for (int i = 0; i < num_yaal; i++) {
+        Yaal yaal = Yaal::random(num_channels);
+        yaal.set_random_position(Vec2((float) MAX_SIZE / 2., (float) MAX_SIZE / 2.),
+                                 Vec2(width - MAX_SIZE / 2., height - MAX_SIZE / 2.));
+        add_yaal(yaal);
+    }
+    for (int i = 0; i < num_plant; i++) {
+        Plant plant = Plant(num_channels);
+        plant.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+        add_plant(plant);
+    }
 }
 
 bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
@@ -165,13 +179,13 @@ void Environment::step() {
     // Solve collisions
     // TODO : if all the rest is done on GPU, reslove them with glouton n^2 on GPU, not quadtree on CPU
     for (int i = 0; i < 2; i++) {
-        if (yaals.size() + plants.size() <= 1) {
+        if (yaals.size() + plants.size() <= 1 || yaals.size() == 0) {
             break;
         }
 
         // initialize quadtree
         QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)),
-                          (float) yaals[0].genome.size / 2.f);
+                          (float) Constants::Yaal::MAX_SIZE / 2.f);
         quadtree.initialize(yaals);
         quadtree.add_plants(plants);
 
@@ -202,16 +216,20 @@ void Environment::step() {
 
 void Environment::add_plant(Plant &&plant) {
     plants.push_back(std::move(plant));
+    add_to_map(plant);
 }
 
 void Environment::add_plant(const Plant &plant) {
     plants.push_back(plant);
+    add_to_map(plant);
 }
 
 void Environment::add_yaal(Yaal &&yaal) {
     yaals.push_back(std::move(yaal));
+    add_to_map(yaal);
 }
 
 void Environment::add_yaal(const Yaal &yaal) {
     yaals.push_back(yaal);
+    add_to_map(yaal);
 }

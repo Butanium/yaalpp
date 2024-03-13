@@ -305,13 +305,46 @@ TEST_CASE("ENVIRONMENT") {
         yaal.genome.field_of_view = MAX_FIELD_OF_VIEW;
         Tensor<float, 3> view = env.get_view(yaal);
         REQUIRE(is_close(env.map, view));
+    }SECTION("Empty env") {
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 500;
+        int width = 500;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        for (int i = 0; i < 10; i++) {
+            env.step();
+        }
+    }SECTION("No yaal env") {
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 500;
+        int width = 500;
+        int num_plants = 500;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        env.create_yaals_and_plants(0, num_plants);
+        for (int i = 0; i < 10; i++) {
+            env.step();
+        }
+    }SECTION("Small env") {
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 50;
+        int width = 50;
+        int num_yaal = 5;
+        int num_plant = 5;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        env.create_yaals_and_plants(num_yaal, num_plant);
+        for (int i = 0; i < 10; i++) {
+            env.step();
+        }
     }SECTION("Env steps and save/load") {
         ensure_directory_exists("test_output/frames");
         // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
         auto seed = Catch::getSeed();
-        std::cout << "SEED WAS MANUALLY SET TO " << seed << std::endl;
-        seed = 3338408716;
         Yaal::generator.seed(seed);
         YaalGenome::generator.seed(seed);
         std::vector<float> diffusion_factors = {0., 0., 0., 2};
@@ -325,23 +358,8 @@ TEST_CASE("ENVIRONMENT") {
         int num_steps = 60;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
         env.diffusion_filter.use_cuda = true;
-        for (int i = 0; i < num_yaal; i++) {
-            Yaal yaal = Yaal::random(4);
-            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.add_yaal(yaal);
-        }
-        for (int i = 0; i < num_plant; i++) {
-            Plant plant = Plant(4);
-            plant.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.add_plant(plant);
-        }
+        env.create_yaals_and_plants(num_yaal, num_plant);
         std::cout << "Updating yaals" << std::endl;
-        for (auto &yaal: env.yaals) {
-            env.add_to_map(yaal);
-        }
-        for (auto &plant: env.plants) {
-            env.add_to_map(plant);
-        }
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
             std::string s = "0000";
@@ -379,41 +397,7 @@ TEST_CASE("ENVIRONMENT") {
         int num_plant = 50;
         int num_steps = 1;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
-        for (int i = 0; i < num_yaal; i++) {
-            Yaal yaal = Yaal::random(4);
-            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.add_yaal(yaal);
-        }
-        for (int i = 0; i < num_plant; i++) {
-            Plant plant = Plant(4);
-            plant.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.add_plant(plant);
-        }
-        for (auto &yaal: env.yaals) {
-            env.add_to_map(yaal);
-        }
-        for (auto &plant: env.plants) {
-            env.add_to_map(plant);
-        }
-    } SECTION("Determinism") {
-        using Constants::Yaal::MAX_SIZE;
-        std::vector<float> diffusion_factors = {0., 0., 0., 2};
-        std::vector<float> max_values = {1, 1, 1, 1};
-        std::vector<float> decay_factors = {0, 0, 0, 0.98};
-        int height = 100;
-        int width = 100;
-        int num_yaal = 50;
-        int num_steps = 1;
-        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
-        for (int i = 0; i < num_yaal; i++) {
-            Yaal yaal = Yaal::random(4);
-            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
-            env.add_yaal(yaal);
-        }
-        for (auto &yaal: env.yaals) {
-            env.add_to_map(yaal);
-        }
-
+        env.create_yaals_and_plants(num_yaal, num_plant);
         for (int i = 0; i < num_steps; i++) {
             env.step();
         }

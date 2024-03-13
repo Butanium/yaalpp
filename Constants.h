@@ -1,9 +1,7 @@
 //
 // Created by clementd on 01/02/24.
 //
-
-#ifndef YAALPP_CONSTANTS_H
-#define YAALPP_CONSTANTS_H
+#pragma once
 
 namespace Constants {
     static constexpr float DELTA_T = 1;
@@ -21,5 +19,3 @@ namespace Constants {
         static constexpr int FILTER_SIZE = 7;
     }
 }
-
-#endif //YAALPP_CONSTANTS_H

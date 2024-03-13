@@ -111,16 +111,3 @@ add_executable(yaalpp main.cpp
         utils/save.cpp
 )
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
-
-add_executable(example examples/tensor_broadcast_mul.cpp
-        utils/circle.cpp
-        utils/circle.hpp
-        utils/rect.cpp
-        utils/rect.hpp
-        utils/offset.hpp
-        entity/plant.cpp
-        entity/plant.hpp
-        utils/save.hpp
-        utils/save.cpp
-)
-target_link_libraries(example PRIVATE Eigen3::Eigen)
