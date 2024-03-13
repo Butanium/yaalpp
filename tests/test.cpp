@@ -306,6 +306,18 @@ TEST_CASE("ENVIRONMENT") {
         for (int i = 0; i < 10; i++) {
             env.step();
         }
+    }SECTION("No yaal env") {
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 500;
+        int width = 500;
+        int num_plants = 500;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        env.create_yaals_and_plants(0, num_plants);
+        for (int i = 0; i < 10; i++) {
+            env.step();
+        }
     }SECTION("Small env") {
         std::vector<float> diffusion_factors = {0., 0., 0., 2};
         std::vector<float> max_values = {1, 1, 1, 1};

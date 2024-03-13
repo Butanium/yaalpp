@@ -125,7 +125,8 @@ void Environment::create_yaals_and_plants(int num_yaal, int num_plant) {
     using Constants::Yaal::MAX_SIZE;
     for (int i = 0; i < num_yaal; i++) {
         Yaal yaal = Yaal::random(num_channels);
-        yaal.set_random_position(Vec2((float) MAX_SIZE / 2., (float) MAX_SIZE / 2.), Vec2(width - MAX_SIZE / 2., height - MAX_SIZE / 2.));
+        yaal.set_random_position(Vec2((float) MAX_SIZE / 2., (float) MAX_SIZE / 2.),
+                                 Vec2(width - MAX_SIZE / 2., height - MAX_SIZE / 2.));
         add_yaal(yaal);
     }
     for (int i = 0; i < num_plant; i++) {
@@ -178,13 +179,13 @@ void Environment::step() {
     // Solve collisions
     // TODO : if all the rest is done on GPU, reslove them with glouton n^2 on GPU, not quadtree on CPU
     for (int i = 0; i < 2; i++) {
-        if (yaals.size() + plants.size() <= 1) {
+        if (yaals.size() + plants.size() <= 1 || yaals.size() == 0) {
             break;
         }
 
         // initialize quadtree
         QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)),
-                          (float) yaals[0].genome.size / 2.f);
+                          (float) Constants::Yaal::MAX_SIZE / 2.f);
         quadtree.initialize(yaals);
         quadtree.add_plants(plants);
 
