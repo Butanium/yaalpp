@@ -1,6 +1,7 @@
 //
 // Created by clementd on 09/02/24.
 //
+#pragma once
 
 #include <iostream>
 #include <utility>
@@ -18,38 +19,77 @@ Environment::Environment(int height, int width, int channels,
                          std::vector<float> &decay_factors_v,
                          std::vector<float> &diffusion_factor,
                          std::vector<float> &max_values_v) :
-        width(width), height(height), channels(channels),
+        map(Tensor<float, 3>(height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, channels)), height(height),
+        width(width),
+        global_height(height),
+        global_width(width), // TODO: implement sharing
+        channels(channels),
         offset_padding(
                 {.top =  MAX_FIELD_OF_VIEW, .bottom =  MAX_FIELD_OF_VIEW, .left =  MAX_FIELD_OF_VIEW, .right =  MAX_FIELD_OF_VIEW}),
-        offset_sharing({.top = 0, .bottom = 0, .left = 0, .right = 0}), // TODO: implement sharing
+        offset_sharing({.top = 0, .bottom = 0, .left = 0, .right = 0}),
         top_left_position(Vec2i::Zero()),
-        global_height(height),
-        global_width(width),
+        diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(diffusion_factor))),
         decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
-        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})),
-        map(Tensor<float, 3>(height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, channels)),
-        diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(diffusion_factor))) {
+        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
     map.setZero();
 }
 
-Environment::Environment(Tensor<float, 3> &&map,
-                         std::vector<float> &decay_factors_v,
-                         std::vector<float> &diffusion_factor,
-                         std::vector<float> &max_values_v,
-                         int offset_left, int offset_right, int offset_top,
-                         int offset_bottom, // TODO : @clément use offset struct
-                         Vec2i &&top_left_position,
-                         int global_height, int global_width) :
-        map(std::move(map)),
-        width((int) map.dimension(0)), height((int) map.dimension(1)),
-        channels((int) map.dimension(2)),
-        offset_padding({.top = offset_top, .bottom = offset_bottom, .left = offset_left, .right = offset_right}),
-        offset_sharing({.top = 0, .bottom = 0, .left = 0, .right = 0}), // TODO: implement sharing
+Environment::Environment(int height, int width, int channels, Eigen::TensorMap<Tensor<float, 3>> decay_factors,
+                         Eigen::TensorMap<Tensor<float, 3>> max_values, const SeparableFilter &diffusion_filter,
+                         int offset_padding_top, int offset_padding_bottom, int offset_padding_left,
+                         int offset_padding_right, int offset_sharing_top, int offset_sharing_bottom,
+                         int offset_sharing_left, int offset_sharing_right, Vec2i top_left_position, int global_height,
+                         int global_width, std::vector<Yaal> yaals, std::vector<Plant> plants) :
+        map(Tensor<float, 3>(height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, channels)), height(height),
+        width(width),
+        global_height(global_height),
+        global_width(global_width),
+        channels(channels),
+        offset_padding(
+                {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
+        offset_sharing(
+                {.top = offset_sharing_top, .bottom = offset_sharing_bottom, .left = offset_sharing_left, .right = offset_sharing_right}),
         top_left_position(std::move(top_left_position)),
-        decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
-        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})),
-        diffusion_filter(SeparableFilter(FILTER_SIZE, (int) map.dimension(2), true, std::move(diffusion_factor))),
-        global_height(global_height), global_width(global_width) {
+        diffusion_filter(diffusion_filter),
+        yaals(std::move(yaals)),
+        plants(std::move(plants)), decay_factors(decay_factors),
+        // TODO : shouldn't this be height + offset + offset + offset + offset, width + ... ?
+        max_values(max_values) {
+    map.setZero();
+    for (auto &yaal: yaals) {
+        add_to_map(yaal);
+    }
+    for (auto &plant: plants) {
+        add_to_map(plant);
+    }
+}
+
+Environment::Environment(Tensor<float, 3> &&map_,
+                         Eigen::TensorMap<Tensor<float, 3>> decay_factors,
+                         Eigen::TensorMap<Tensor<float, 3>> max_values,
+                         const SeparableFilter &diffusion_filter,
+                         int offset_padding_top, int offset_padding_bottom, int offset_padding_left,
+                         int offset_padding_right,
+                         int offset_sharing_top, int offset_sharing_bottom, int offset_sharing_left,
+                         int offset_sharing_right,
+                         Vec2i top_left_position,
+                         int global_height, int global_width,
+                         std::vector<Yaal> yaals,
+                         std::vector<Plant> plants) :
+        map(std::move(map_)),
+        height((int) map.dimension(0) - 2 * MAX_FIELD_OF_VIEW),
+        width((int) map.dimension(1) - 2 * MAX_FIELD_OF_VIEW),
+        global_height(global_height), global_width(global_width),
+        channels((int) map.dimension(2)),
+        offset_padding(
+                {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
+        offset_sharing(
+                {.top = offset_sharing_top, .bottom = offset_sharing_bottom, .left = offset_sharing_left, .right = offset_sharing_right}),
+        top_left_position(std::move(top_left_position)),
+        diffusion_filter(diffusion_filter),
+        yaals(std::move(yaals)), plants(std::move(plants)),
+        decay_factors(decay_factors),
+        max_values(max_values) {
 }
 
 std::tuple<int, int> Environment::pos_to_index(const Vec2 &pos) {
@@ -60,11 +100,26 @@ std::tuple<int, int> Environment::pos_to_index(const Vec2 &pos) {
     return {y, x};
 }
 
+void Environment::add_to_map(const Plant &plant) {
+    //topleftposition : position - Vec2((float) genome.size / 2.f, (float) genome.size / 2.f)
+    auto [i, j] = pos_to_index(
+            plant.position - Vec2((float) plant.body.dimension(0) / 2.f, (float) plant.body.dimension(1) / 2.f));
+    array<Index, 3> offsets = {i, j, 0};
+    auto slice = map.slice(offsets, plant.body.dimensions());
+#pragma omp critical
+    {
+        slice += plant.body;
+    }
+}
 
 void Environment::add_to_map(const Yaal &yaal) {
     auto [i, j] = pos_to_index(yaal.top_left_position());
     array<Index, 3> offsets = {i, j, 0};
-    map.slice(offsets, yaal.body.dimensions()) += yaal.body;
+    auto slice = map.slice(offsets, yaal.body.dimensions());
+#pragma omp critical
+    {
+        slice += yaal.body;
+    };
 }
 
 bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
@@ -106,30 +161,51 @@ void Environment::step() {
         auto view = get_view(yaal);
         yaal.update(view);
     }
-    int nb_loops = 0;
+
+    // Solve collisions
+    // TODO : if all the rest is done on GPU, reslove them with glouton n^2 on GPU, not quadtree on CPU
     for (int i = 0; i < 2; i++) {
-        if (yaals.size() <= 1) {
+        if (yaals.size() + plants.size() <= 1) {
             break;
         }
-        nb_loops++;
+
+        // initialize quadtree
         QuadTree quadtree(Rect(top_left_position.cast<float>(), Vec2(width, height)),
                           (float) yaals[0].genome.size / 2.f);
         quadtree.initialize(yaals);
+        quadtree.add_plants(plants);
+
+        // get closest yaals and resolve collisions
         std::vector<Vec2> closests(yaals.size());
         quadtree.get_all_closest(yaals, closests);
         if (resolve_collisions(closests)) {
             break;
         }
     }
+
     // TODO?: put this in diffusion filter to parallelize it
     map *= decay_factors.broadcast(array<int, 3>{height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, 1});
     diffusion_filter.apply_inplace(map, offset_padding + offset_sharing); // TODO : check sharing offset
-#pragma omp parallel for schedule(static) //TODO?: c'est des carrés et quand ça cogne ça fait pas beau
+
+#pragma omp parallel for schedule(static)
     for (auto &yaal: yaals) {
         add_to_map(yaal);
     }
+#pragma omp parallel for schedule(static)
+    for (auto &plant: plants) {
+        add_to_map(plant);
+    }
+
     map = map.cwiseMin(
             max_values.broadcast(array<int, 3>{height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, 1}));
+}
+
+void Environment::add_plant(Plant &&plant) {
+    plants.push_back(std::move(plant));
+}
+
+void Environment::add_plant(const Plant &plant) {
+    plants.push_back(plant);
 }
 
 void Environment::add_yaal(Yaal &&yaal) {

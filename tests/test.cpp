@@ -17,6 +17,7 @@
 #include "../physics/quadtree.hpp"
 #include "../simulation/Environment.h"
 #include "../utils/utils.h"
+#include "../utils/save.hpp"
 #include <catch2/catch_get_random_seed.hpp>
 #include <vector>
 #include <format>
@@ -304,7 +305,7 @@ TEST_CASE("ENVIRONMENT") {
         yaal.genome.field_of_view = MAX_FIELD_OF_VIEW;
         Tensor<float, 3> view = env.get_view(yaal);
         REQUIRE(is_close(env.map, view));
-    }SECTION("Env steps") {
+    }SECTION("Env steps and save/load") {
         ensure_directory_exists("test_output/frames");
         // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
@@ -316,42 +317,105 @@ TEST_CASE("ENVIRONMENT") {
         std::vector<float> diffusion_factors = {0., 0., 0., 2};
         std::vector<float> max_values = {1, 1, 1, 1};
         std::vector<float> decay_factors = {0, 0, 0, 0.98};
-        int height = 200;
-        int width = 1000;
+        int height = 500;
+        int width = 500;
         Stream stream("test_output/env_steps.mp4", 10, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
-        int num_yaal = 1000;
-        int num_steps = 100;
+        int num_yaal = 200;
+        int num_plant = 200;
+        int num_steps = 60;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
         for (int i = 0; i < num_yaal; i++) {
             Yaal yaal = Yaal::random(4);
-            yaal.setRandomPosition(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
             env.add_yaal(yaal);
+        }
+        for (int i = 0; i < num_plant; i++) {
+            Plant plant = Plant(4);
+            plant.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+            env.add_plant(plant);
         }
         std::cout << "Updating yaals" << std::endl;
         for (auto &yaal: env.yaals) {
             env.add_to_map(yaal);
+        }
+        for (auto &plant: env.plants) {
+            env.add_to_map(plant);
         }
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
             auto frame_name = std::format("test_output/frames/frame_{}.png", i);
             // View the env to send the 1, 2, 3 channels instead of 0-3
             auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
-            Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1}, array<Index, 3>{height, width, 3});
+            Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1},
+                                                          array<Index, 3>{height, width, 3});
             stream.append_frame(reshaped_map, frame_name.c_str());
             env.step();
         }
         stream.end_stream();
-        // at the end print all positions sorted from top left to bottom right
-        std::cerr << "\"Save\" of the simulation:" << std::endl;
-        std::vector<Vec2> positions;
+        // Save and load the environment
+        std::string save_path = "./save/";
+        ensure_directory_exists(save_path);
+        save_environment(env, save_path, true);
+
+        Environment env2 = load_environment(save_path);
+
+        for (int i = 0; i < 100; i++) {
+            env2.step();
+        }
+        // save again
+        ensure_directory_exists(save_path);
+        save_environment(env2, save_path, true);
+    } SECTION("Determinism") {
+        using Constants::Yaal::MAX_SIZE;
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 100;
+        int width = 100;
+        int num_yaal = 50;
+        int num_plant = 50;
+        int num_steps = 1;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        for (int i = 0; i < num_yaal; i++) {
+            Yaal yaal = Yaal::random(4);
+            yaal.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+            env.add_yaal(yaal);
+        }
+        for (int i = 0; i < num_plant; i++) {
+            Plant plant = Plant(4);
+            plant.set_random_position(Vec2(MAX_SIZE, MAX_SIZE), Vec2(width - MAX_SIZE, height - MAX_SIZE));
+            env.add_plant(plant);
+        }
         for (auto &yaal: env.yaals) {
-            positions.push_back(yaal.position);
+            env.add_to_map(yaal);
         }
-        std::sort(positions.begin(), positions.end(), [](const Vec2 &a, const Vec2 &b) {
-            return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y());
-        });
-        for (auto &pos: positions) {
-            std::cerr << pos.x() << " " << pos.y() << std::endl;
+        for (auto &plant: env.plants) {
+            env.add_to_map(plant);
         }
+        for (int i = 0; i < num_steps; i++) {
+            env.step();
+        }
+
+        // Save and load the environment
+        std::string save_path = "./save/";
+        ensure_directory_exists(save_path);
+        save_environment(env, save_path, true);
+
+        Environment env2 = load_environment(save_path);
+        Environment env3 = load_environment(save_path);
+
+        int num_steps2 = 100;
+        for (int i = 0; i < num_steps2; i++) {
+            env2.step();
+        }
+
+        //set omp num threads to 1
+        omp_set_num_threads(1);
+        for (int i = 0; i < num_steps2; i++) {
+            env3.step();
+        }
+
+        // use is_close :
+        REQUIRE(is_close(env2.map, env3.map));
     }
 }

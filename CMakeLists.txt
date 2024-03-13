@@ -1,18 +1,23 @@
 cmake_minimum_required(VERSION 3.27)
 project(yaalpp LANGUAGES CXX CUDA)
 Include(FetchContent)
-# for performance: add_compile_options(-O3 -march=native)
+# for performance:
+#add_compile_options(-O3 -march=native)
 add_compile_options(-fopenmp -std=c++20)
-# add_compile_options(-Wall) for all warnings
+add_compile_options(-Wall) # for all warnings
 # for debug: add_compile_options(-O0)
 
 # Test library
 FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.5.2 # or a later release
+        GIT_TAG v3.5.2
 )
 FetchContent_MakeAvailable(Catch2)
+
+# JSON library
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
 
 # Tensor library
 FetchContent_Declare(
@@ -64,9 +69,13 @@ add_executable(tests tests/test.cpp
         video/stream.h
         utils/utils.cpp
         utils/utils.h
+        entity/plant.cpp
+        entity/plant.hpp
+        utils/save.hpp
+        utils/save.cpp
 
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -89,8 +98,12 @@ add_executable(yaalpp main.cpp
         video/stream.h
         utils/utils.cpp
         utils/utils.h
+        entity/plant.cpp
+        entity/plant.hpp
+        utils/save.hpp
+        utils/save.cpp
 )
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
 
 add_executable(example examples/tensor_broadcast_mul.cpp
         utils/circle.cpp
@@ -98,5 +111,9 @@ add_executable(example examples/tensor_broadcast_mul.cpp
         utils/rect.cpp
         utils/rect.hpp
         utils/offset.hpp
+        entity/plant.cpp
+        entity/plant.hpp
+        utils/save.hpp
+        utils/save.cpp
 )
 target_link_libraries(example PRIVATE Eigen3::Eigen)
