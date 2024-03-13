@@ -425,3 +425,65 @@ TEST_CASE("ENVIRONMENT") {
         REQUIRE(is_close(env2.map, env3.map));
     }
 }
+
+TEST_CASE("DIF") {
+        using Constants::Yaal::MAX_SIZE;
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 10;
+        int width = 10;
+        int num_yaal = 0;
+        int num_plant = 0;
+        int num_steps = 0;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        Stream stream("test_output/tt2/env_steps.mp4", 10, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+        env.create_yaals_and_plants(num_yaal, num_plant);
+	env.map(15,15,3) = 1;
+        for (int i = 0; i < num_steps; i++) {
+            env.step();
+        }
+
+        // Save and load the environment
+        std::string save_path = "./save/";
+        ensure_directory_exists(save_path);
+        save_environment(env, save_path, true);
+
+        Environment env2 = load_environment(save_path);
+        Environment env3 = load_environment(save_path);
+
+        env3.diffusion_filter.use_cuda = true; // Set filter on gpu
+
+	std::cout << "filter row :: " << env.diffusion_filter.row_filters_transpose << std::endl;
+	std::cout << "filter col :: " << env.diffusion_filter.col_filters_transpose << std::endl;
+
+	Tensor<float, 2> envmap_chip = env.map.chip(3,2);
+	std::cout << "env map :: " << envmap_chip << std::endl;
+
+        int num_steps2 = 1;
+        for (int i = 0; i < num_steps2; i++) {
+            env2.step();
+        }
+
+        for (int i = 0; i < num_steps2; i++) {
+            env3.step();
+        }
+
+	std::string frame2 = "test_output/tt2/frame_env2.png";
+	std::string frame3 = "test_output/tt2/frame_env3.png";
+        auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
+        Tensor<float, 3> reshaped_map2 = env2.map.slice(array<Index, 3>{fov, fov, 1},
+                                                      array<Index, 3>{height, width, 3});
+        Tensor<float, 3> reshaped_map3 = env3.map.slice(array<Index, 3>{fov, fov, 1},
+                                                      array<Index, 3>{height, width, 3});
+        stream.append_frame(reshaped_map2, frame2.c_str());
+        stream.append_frame(reshaped_map3, frame3.c_str());
+
+	Tensor<float, 2> envmap2_chip = env2.map.chip(3,2);
+	std::cout << "env2 map :: " << envmap2_chip << std::endl;
+
+	Tensor<float, 2> envmap3_chip = env3.map.chip(3,2);
+	std::cout << "env3(gpu) map :: " << envmap3_chip << std::endl;
+        // use is_close :
+        REQUIRE(is_close(env2.map, env3.map));
+}

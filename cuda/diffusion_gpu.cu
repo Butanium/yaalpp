@@ -25,6 +25,10 @@ __global__ void filterApplyColKernel(float *input, float *output, int width, int
             if (y_index < y_start) y_index = y_start;
             if (y_index >= y_end) y_index = y_end - 1;
 
+	    if (x == 15 && y == 15) {
+		    printf("filter : %f\n", col_filter[c * filter_size + i]);
+	    }
+
             output[index] += input[y_index] * col_filter[c * filter_size + i];
           }
         }
@@ -55,6 +59,10 @@ __global__ void filterApplyRowKernel(float *input, float *output, int width, int
             if (x_index < x_start) x_index = x_start;
             if (x_index >= x_end) x_index = x_end - 1;
 
+	    if (x == 15 && y == 15) {
+		    printf("filter : %f\n", row_filter[c * filter_size + i]);
+	    }
+
             output[index] += input[x_index] * row_filter[c * filter_size + i];
           }
         }
@@ -81,6 +89,10 @@ void cudaFilterApply(const float *input, float *output, int width, int height, i
   cudaMemcpy(d_input, input + start_channels * width * height, size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_row_filter, row_filter + start_channels * filter_size, filter_size_bytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_col_filter, col_filter + start_channels * filter_size, filter_size_bytes, cudaMemcpyHostToDevice);
+
+	for (int i = start_channels * filter_size; i < channels * filter_size; i++) {
+		printf("filter row is : %f\n", row_filter[i]);
+	}
 
   // run row & col kernels
   filterApplyRowKernel<<<dim3(16, 16, num_channels), dim3(16, 16, 1)>>>(d_input, d_tmp, width, height, num_channels, offset, filter_size, d_row_filter);
