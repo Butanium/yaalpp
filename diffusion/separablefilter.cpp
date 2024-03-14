@@ -261,7 +261,5 @@ void SeparableFilter::cudaApply(const Tensor<float, 3> &input, Tensor<float, 3> 
     int channels = input.dimension(2);
     int start_c = skip_color_channels ? 3 : 0;
 
-    std::cout << "row filtletileititl :: " << row_filters_transpose << std::endl;
-
     cudaFilterApply(input.data(), output.data(), width, height, channels, start_c, offset, filter_size, row_filters_transpose.data(), col_filters_transpose.data());
 }
