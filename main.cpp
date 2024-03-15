@@ -15,8 +15,10 @@
 #include <cstdio>
 #include "simulation/Environment.h"
 #include "Constants.h"
+
 using json = nlohmann::json;
 
+#include "topology/topology.h"
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -46,10 +48,6 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     };
     program.add_description("Yet Another Artificial Life Program in cpp");
     help_groups["Environment Hyperparameters"] = {
-            program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>(),
-            program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>(),
-            program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(
-                    6).scan<'i', int>(),
             program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
                     std::vector<float>{0, 0, 0, 0.9, 0.8, 0.5}
@@ -63,12 +61,22 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     };
     help_groups["General"] = {
             program.add_argument("-h", "--help").help("Print this help").nargs(0),
+            program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag()
     };
     help_groups["Simulation parameters"] = {
+//TODO:            program.add_argument("-l", "--load").help(
+//                    "Load a simulation from a file. Ignores other simulation parameters"),
+            program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(
+                    6).scan<'i', int>(),
             program.add_argument("-n", "--num-yaals").help(
                     "Number of yaals at the start of the simulation").default_value(100).scan<'i', int>(),
+            program.add_argument("-n", "--num-plants").help(
+                    "Number of plants at the start of the simulation").default_value(200).scan<'i', int>(),
             program.add_argument("-t", "--timesteps").help("Number of timesteps to simulate").default_value(
                     10000).scan<'i', int>(),
+            program.add_argument("-s", "--seed").help("The seed of the simulation").scan<'i', int>()
     };
     try {
         program.parse_args(argc, argv);
@@ -76,7 +84,7 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
         std::cout << program.usage() << std::endl;
         print_grouped_help(help_groups);
         std::cerr << err.what() << std::endl;
-        std::exit(1);
+        exit(1);
     }
     if (program.is_used("--help")) {
         std::cout << program.usage() << std::endl;
@@ -97,13 +105,78 @@ int main(int argc, char *argv[]) {
     auto diffusion_rate = program.get<std::vector<float>>("--diffusion-rate");
     auto max_values = program.get<std::vector<float>>("--max-values");
     int num_yaals = program.get<int>("--num-yaals");
+    int num_plants = program.get<int>("--num-plants");
     int timesteps = program.get<int>("--timesteps");
-#ifdef _OPENMP
-    std::cout << "OpenMP is enabled" << std::endl;
-#else
-    std::cout << "OpenMP is disabled" << std::endl;
-#endif
-    auto env = Environment(height, width, num_channels, decay_factors, diffusion_rate, max_values);
+    bool allow_idle = program.get<bool>("--allow-idle-process");
+
+    Topology top = get_topology(MPI_COMM_WORLD);
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    if (program.present<int>("--seed")) {
+        int seed = program.get<int>("--seed");
+        Yaal::generator.seed(seed + mpi_rank);
+        YaalGenome::generator.seed(seed + mpi_rank);
+    }
+    std::cout << "Hello from rank!" << mpi_rank << " of " << top.processes << " processes" << std::endl;
+    std::cout << "Running with " << top.cores_per_process << " cores per process and " << top.gpus << " gpus"
+              << " with a total of " << top.gpu_memory << "MB of GPU memory" << std::endl;
+    std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
+    // Divide the environment into subenvironments
+    auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
+    if (rows > columns && width > height) {
+        int temp = rows;
+        rows = columns;
+        columns = temp;
+    }
+    assert(allow_idle || (columns * rows == top.processes));
+    if (columns * rows <= mpi_rank) {
+        std::cout << "Rank " << mpi_rank << " is idle" << std::endl;
+        MPI_Finalize();
+        return 0;
+    }
+    int num_chunks = rows * columns;
+
+    int sub_height = height / rows;
+    int sub_width = width / columns;
+    int row = mpi_rank / columns;
+    int column = mpi_rank % columns;
+    int left_neighbor = mpi_rank - 1;
+    int right_neighbor = mpi_rank + 1;
+    int top_neighbor = mpi_rank - columns;
+    int bottom_neighbor = mpi_rank + columns;
+    auto view_offset = Offset::zero();
+    auto share_offset = Offset::zero();
+    if (column == 0) {
+        view_offset.left = Constants::Yaal::MAX_FIELD_OF_VIEW;
+    } else {
+        share_offset.left = Constants::Environment::SHARED_SIZE;
+    }
+    if (row == 0) {
+        view_offset.top = Constants::Yaal::MAX_FIELD_OF_VIEW;
+    } else {
+        share_offset.top = Constants::Environment::SHARED_SIZE;
+    }
+    if (row == rows - 1) {
+        sub_height += height % sub_height;
+        view_offset.bottom = Constants::Yaal::MAX_FIELD_OF_VIEW;
+    } else {
+        share_offset.bottom = Constants::Environment::SHARED_SIZE;
+    }
+    if (column == columns - 1) {
+        sub_width += width % sub_width;
+        view_offset.right = Constants::Yaal::MAX_FIELD_OF_VIEW;
+    } else {
+        share_offset.right = Constants::Environment::SHARED_SIZE;
+    }
+    int sub_num_yaal = num_yaals / num_chunks;
+    int sub_num_plant = num_plants / num_chunks;
+    if (mpi_rank == 0) {
+        sub_num_yaal += num_yaals % num_chunks;
+        sub_num_plant += num_plants % num_chunks;
+    }
+    std::cout << "Subenvironment " << mpi_rank << " at " << row << " " << column << " with size " << sub_height << " "
+              << sub_width << std::endl;
+    auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values);
     env.yaals.reserve(num_yaals);
     for (int i = 0; i < num_yaals; i++) {
         Yaal yaal = Yaal::random(num_channels);

@@ -89,7 +89,7 @@ YaalGenome YaalGenome::random(int num_channels) {
     }
     return {
             .brain = YaalMLP{
-                    .direction_weights = Tensor<float, 1>(num_channels).setRandom(),
+                    .direction_weights = Tensor<float, 1>(num_channels).setRandom<generator>(),
             },
             .max_speed = speed_rng(generator),
             .field_of_view = fov_rng(generator),

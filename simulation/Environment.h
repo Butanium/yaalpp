@@ -6,11 +6,16 @@
 #define YAALPP_ENVIRONMENT_H
 
 #include "../entity/Yaal.h"
+#include "../utils/utils.h"
 #include "../entity/plant.hpp"
 #include "../diffusion/separablefilter.hpp"
 
 using Vec2i = Eigen::Vector2i;
 using Eigen::Index;
+
+class EnvTransform {
+
+};
 
 class Environment {
     /// Given a position in the environment, returns the index in the map tensor

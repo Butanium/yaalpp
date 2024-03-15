@@ -1,9 +1,4 @@
-//
-// Created by clementd on 01/02/24.
-//
-
-#ifndef YAALPP_CONSTANTS_H
-#define YAALPP_CONSTANTS_H
+#pragma once
 
 namespace Constants {
     static constexpr float DELTA_T = 1;
@@ -19,7 +14,6 @@ namespace Constants {
     }
     namespace Environment {
         static constexpr int FILTER_SIZE = 7;
+        static constexpr int SHARED_SIZE = 2 * Yaal::MAX_FIELD_OF_VIEW + Yaal::MAX_SIZE;
     }
 }
-
-#endif //YAALPP_CONSTANTS_H
