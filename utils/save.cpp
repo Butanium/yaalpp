@@ -141,7 +141,7 @@ void save_environment(const Environment &env, const std::string &path, bool save
     json j;
     j["width"] = env.width;
     j["height"] = env.height;
-    j["channels"] = env.channels;
+    j["channels"] = env.num_channels;
     j["offset_padding"] = {
             {"top", env.offset_padding.top},
             {"bottom", env.offset_padding.bottom},

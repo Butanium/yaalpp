@@ -27,7 +27,7 @@ public:
     const int width;
     const int global_height;
     const int global_width;
-    const int channels;
+    const int num_channels;
     const Offset offset_padding;
     const Offset offset_sharing;
     const Vec2i top_left_position;
@@ -73,7 +73,7 @@ public:
         view_offsets[1] = j - fov;
         view_offsets[2] = 0;
         auto view_dims = array<Index, 3>{(Index) 2 * fov + yaal.genome.size,
-                                         (Index) 2 * fov + yaal.genome.size, (Index) channels};
+                                         (Index) 2 * fov + yaal.genome.size, (Index) num_channels};
         return map.slice(view_offsets, view_dims);
     }
 
@@ -100,6 +100,8 @@ public:
 
     /// Perform a step in the environment
     void step();
+
+    void create_yaals_and_plants(int num_yaal, int num_plant);
 };
 
 
