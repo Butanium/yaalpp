@@ -41,54 +41,34 @@ Environment::Environment(int height, int width,
         diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(_diffusion_factor))),
         decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
         max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
-    int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     mpi_row = mpi_rank / num_mpi_columns;
     mpi_column = mpi_rank % num_mpi_columns;
-    if (mpi_row == 0) {
-        offset_padding.top = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        offset_sharing.top = Constants::Environment::SHARED_SIZE;
-        neighbourhood.top = mpi_rank - num_mpi_columns;
-        top_data = new float[SHARED_SIZE * width * num_channels];
-        if (mpi_column != 0) {
-            neighbourhood.top_left = mpi_rank - num_mpi_columns - 1;
-            top_left_data = new float[SHARED_SIZE * SHARED_SIZE * num_channels];
-        }
-        if (mpi_column != num_mpi_columns - 1) {
-            neighbourhood.top_right = mpi_rank - num_mpi_columns + 1;
-            top_right_data = new float[SHARED_SIZE * SHARED_SIZE * num_channels];
-        }
-    }
-    if (mpi_row == num_mpi_rows - 1) {
-        offset_padding.bottom = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        offset_sharing.bottom = Constants::Environment::SHARED_SIZE;
-        neighbourhood.bottom = mpi_rank + num_mpi_columns;
-        bottom_data = new float[SHARED_SIZE * width * num_channels];
-        if (mpi_column != 0) {
-            neighbourhood.bottom_left = mpi_rank + num_mpi_columns - 1;
-            bottom_left_data = new float[SHARED_SIZE * SHARED_SIZE * num_channels];
-        }
-        if (mpi_column != num_mpi_columns - 1) {
-            neighbourhood.bottom_right = mpi_rank + num_mpi_columns + 1;
-            bottom_right_data = new float[SHARED_SIZE * SHARED_SIZE * num_channels];
+    //@formatter:off
+    const std::array<int, 8> sharing_sizes = {{
+        (int) Constants::Environment::SHARED_SIZE * width * num_channels,// top
+        (int) Constants::Environment::SHARED_SIZE * width * num_channels,// bottom
+        (int) height * Constants::Environment::SHARED_SIZE * num_channels,// left
+        (int) height * Constants::Environment::SHARED_SIZE * num_channels,// right
+        (int) Constants::Environment::SHARED_SIZE * Constants::Environment::SHARED_SIZE * num_channels,// top_left
+        (int) Constants::Environment::SHARED_SIZE * Constants::Environment::SHARED_SIZE * num_channels,// top_right
+        (int) Constants::Environment::SHARED_SIZE * Constants::Environment::SHARED_SIZE * num_channels,// bottom_left
+        (int) Constants::Environment::SHARED_SIZE * Constants::Environment::SHARED_SIZE * num_channels,// bottom_right
+    }};
+    //@formatter:on
+    for (int i = 0; i < 8; i++) {
+        if (neighbourhood.add(i, mpi_rank, num_mpi_rows, num_mpi_columns)) {
+            mpi_receive_results[i].reserve(sharing_sizes[i]);
         }
     }
-    if (mpi_column == 0) {
-        offset_padding.left = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        offset_sharing.left = Constants::Environment::SHARED_SIZE;
-        neighbourhood.left = mpi_rank - 1;
-        left_data = new float[height * SHARED_SIZE * num_channels];
+    for (int i = 0; i < 4; i++) {
+        if (neighbourhood[i] != MPI_PROC_NULL) {
+            offset_sharing[i] = SHARED_SIZE;
+        } else {
+            offset_padding[i] = MAX_FIELD_OF_VIEW;
+        }
     }
-    if (mpi_column == num_mpi_columns - 1) {
-        offset_padding.right = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        offset_sharing.right = Constants::Environment::SHARED_SIZE;
-        neighbourhood.right = mpi_rank + 1;
-        right_data = new float[height * SHARED_SIZE * num_channels];
-    }
+
     map = Tensor<float, 3>(
             height + offset_padding.top + offset_padding.bottom + offset_sharing.top + offset_sharing.bottom,
             width + offset_padding.left + offset_padding.right + offset_sharing.left + offset_sharing.right,
@@ -357,7 +337,7 @@ void Environment::step() {
         MPI_Isend(neighbor_map.data(), (int) neighbor_map.size(), MPI_FLOAT, rank, MAP_TAG, MPI_COMM_WORLD,
                   &send_request);
         recv_requests[i] = recv_request;
-        MPI_Irecv(&mpi_receive_results[i], shared_size, MPI_FLOAT, rank, MAP_TAG, MPI_COMM_WORLD, &recv_request);
+        MPI_Irecv(&mpi_receive_results[i], (int) shared_size, MPI_FLOAT, rank, MAP_TAG, MPI_COMM_WORLD, &recv_request);
     }
     // When a receive is done, add the data to the map
     // To do that we create an omp task per receive request
@@ -365,7 +345,7 @@ void Environment::step() {
     {
 #pragma omp single nowait
         {
-            bool* completed = new bool[8];  // todo remove
+            bool *completed = new bool[8];  // todo remove
             for (int i = 0; i < 8; i++) {
                 completed[i] = false;
             }
@@ -373,7 +353,8 @@ void Environment::step() {
                 int completed_idx;
                 int _flag;
                 // TODO: check that test any won't return the same index twice
-                MPI_Testany((int) recv_requests.size(), recv_requests.data(), &completed_idx, &_flag, MPI_STATUS_IGNORE);
+                MPI_Testany((int) recv_requests.size(), recv_requests.data(), &completed_idx, &_flag,
+                            MPI_STATUS_IGNORE);
                 if (completed_idx != MPI_UNDEFINED) {
                     assert(!completed[completed_idx]);
                     completed[completed_idx] = true;
