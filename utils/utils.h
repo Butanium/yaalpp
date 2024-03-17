@@ -23,6 +23,12 @@ struct Offset {
         return left + right;
     };
 
+    /// Subscript operator
+    int &operator[](int i) {
+        int *n_arr = &top;
+        return n_arr[i];
+    }
+
     Offset operator+(const Offset &other) const {
         return {top + other.top, bottom + other.bottom, left + other.left, right + other.right};
     }
@@ -44,6 +50,7 @@ struct Neighbourhood {
     int bottom_left;
     int bottom_right;
 
+
     /// Subscript operator
     int &operator[](int i) {
         int *n_arr = &top;
@@ -55,6 +62,43 @@ struct Neighbourhood {
         return {n, n, n, n, n, n, n, n};
     }
 
+    bool add(int i, int mpi_rank, int num_rows, int num_columns) {
+        int rank = mpi_rank;
+        switch (i) {
+            case 0:
+                rank -= num_columns;
+                break;
+            case 1:
+                rank += num_columns;
+                break;
+            case 2:
+                rank -= 1;
+                break;
+            case 3:
+                rank += 1;
+                break;
+            case 4:
+                rank -= num_columns + 1;
+                break;
+            case 5:
+                rank -= num_columns - 1;
+                break;
+            case 6:
+                rank += num_columns - 1;
+                break;
+            case 7:
+                rank += num_columns + 1;
+                break;
+            default:
+                throw std::runtime_error("Invalid neighbourhood index");
+        }
+        if (rank < 0 || rank >= num_rows * num_columns) {
+            rank = MPI_PROC_NULL;
+        }
+        (*this)[i] = rank;
+        return rank != MPI_PROC_NULL;
+
+    }
 };
 
 std::vector<int> prime_decomposition(int n);
