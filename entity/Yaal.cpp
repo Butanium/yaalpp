@@ -55,7 +55,7 @@ std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
  */
 Tensor<float, 3> YaalGenome::generate_body() {
     Tensor<float, 3> body(size, size, (long) signature.size());
-    for (int c = 0; c < signature.size(); c++)
+    for (int c = 0; c < (int) signature.size(); c++)
         body.chip(c, 2).setConstant(signature[c]);
     // Apply circle mask
     float center = (float) size / 2.f - 0.5f;
@@ -75,6 +75,31 @@ Tensor<float, 3> YaalGenome::generate_body() {
     return body;
 }
 
+template<typename Scalar>
+struct GenomeEigenRandomGenerator {
+    std::mt19937 &generator;
+
+    // Default and copy constructors. Both are needed
+    GenomeEigenRandomGenerator() : generator(YaalGenome::generator) {}
+
+    GenomeEigenRandomGenerator(const GenomeEigenRandomGenerator &other) : generator(other.generator) {}
+
+    // Return a random value to be used.  "element_location" is the
+    // location of the entry to set in the tensor, it can typically
+    // be ignored.
+    Scalar operator()(Eigen::DenseIndex element_location,
+                      Eigen::DenseIndex /*unused*/ = 0) const {
+        std::uniform_real_distribution<Scalar> dist(0, 1);
+        return dist(generator);
+    }
+
+    // Same as above but generates several numbers at a time.
+    typename Eigen::internal::packet_traits<Scalar>::type packetOp(
+            Eigen::DenseIndex packet_location, Eigen::DenseIndex /*unused*/ = 0) const {
+        std::uniform_real_distribution<Scalar> dist(0, 1);
+        return Eigen::internal::packet_traits<Scalar>::setConstant(dist(generator));
+    }
+};
 
 YaalGenome YaalGenome::random(int num_channels) {
     auto speed_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_SPEED, Constants::Yaal::MAX_SPEED);
@@ -89,7 +114,7 @@ YaalGenome YaalGenome::random(int num_channels) {
     }
     return {
             .brain = YaalMLP{
-                    .direction_weights = Tensor<float, 1>(num_channels).setRandom<generator>(),
+                    .direction_weights = Tensor<float, 1>(num_channels).setRandom<GenomeEigenRandomGenerator<float>>()
             },
             .max_speed = speed_rng(generator),
             .field_of_view = fov_rng(generator),

@@ -148,18 +148,10 @@ void save_environment(const Environment &env, const std::string &path, bool save
             {"left", env.offset_padding.left},
             {"right", env.offset_padding.right}
     };
-    j["offset_sharing"] = {
-            {"top", env.offset_sharing.top},
-            {"bottom", env.offset_sharing.bottom},
-            {"left", env.offset_sharing.left},
-            {"right", env.offset_sharing.right}
-    };
     j["top_left_position"] = {
             {"x", env.top_left_position.x()},
             {"y", env.top_left_position.y()}
     };
-    j["global_height"] = env.global_height;
-    j["global_width"] = env.global_width;
     j["decay_factors"] = {
             {"nb_channels", env.decay_factors.dimension(2)},
             {"data", data_to_json(env.decay_factors.data(), env.decay_factors.size())}
@@ -207,15 +199,8 @@ Environment load_environment(const std::string &path) {
     int off_pad_bottom = j["offset_padding"]["bottom"];
     int off_pad_left = j["offset_padding"]["left"];
     int off_pad_right = j["offset_padding"]["right"];
-    int off_shar_top = j["offset_sharing"]["top"];
-    int off_shar_bottom = j["offset_sharing"]["bottom"];
-    int off_shar_left = j["offset_sharing"]["left"];
-    int off_shar_right = j["offset_sharing"]["right"];
 
-    Vec2i top_left_position(j["top_left_position"]["x"], j["top_left_position"]["y"]);
-
-    int global_height = j["global_height"];
-    int global_width = j["global_width"];
+    Vec2 top_left_position(j["top_left_position"]["x"], j["top_left_position"]["y"]);
 
     int nb_channels = j["decay_factors"]["nb_channels"];
     float *decay_factors_data = new float[nb_channels];
@@ -254,9 +239,7 @@ Environment load_environment(const std::string &path) {
                 max_values,
                 diffusion_filter,
                 off_pad_top, off_pad_bottom, off_pad_left, off_pad_right,
-                off_shar_top, off_shar_bottom, off_shar_left, off_shar_right,
                 top_left_position,
-                global_height, global_width,
                 std::move(yaals),
                 std::move(plants)
         );
@@ -268,9 +251,7 @@ Environment load_environment(const std::string &path) {
                 max_values,
                 diffusion_filter,
                 off_pad_top, off_pad_bottom, off_pad_left, off_pad_right,
-                off_shar_top, off_shar_bottom, off_shar_left, off_shar_right,
                 std::move(top_left_position),
-                global_height, global_width,
                 std::move(yaals),
                 std::move(plants)
         );

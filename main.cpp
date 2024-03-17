@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Hello from rank!" << mpi_rank << " of " << top.processes << " processes" << std::endl;
     std::cout << "Running with " << top.cores_per_process << " cores per process and " << top.gpus << " gpus"
-              << " with a total of " << top.gpu_memory << "MB of GPU memory" << std::endl;
+              << " with a total of " << top.gpus_memory << "MB of GPU memory" << std::endl;
     std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
     // Divide the environment into subenvironments
     auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
@@ -135,38 +135,16 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     int num_chunks = rows * columns;
-
     int sub_height = height / rows;
     int sub_width = width / columns;
     int row = mpi_rank / columns;
     int column = mpi_rank % columns;
-    int left_neighbor = mpi_rank - 1;
-    int right_neighbor = mpi_rank + 1;
-    int top_neighbor = mpi_rank - columns;
-    int bottom_neighbor = mpi_rank + columns;
-    auto view_offset = Offset::zero();
-    auto share_offset = Offset::zero();
-    if (column == 0) {
-        view_offset.left = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        share_offset.left = Constants::Environment::SHARED_SIZE;
-    }
-    if (row == 0) {
-        view_offset.top = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        share_offset.top = Constants::Environment::SHARED_SIZE;
-    }
+    Vec2 top_left_position((float) column * sub_width, (float) row * sub_height);
     if (row == rows - 1) {
         sub_height += height % sub_height;
-        view_offset.bottom = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        share_offset.bottom = Constants::Environment::SHARED_SIZE;
     }
     if (column == columns - 1) {
         sub_width += width % sub_width;
-        view_offset.right = Constants::Yaal::MAX_FIELD_OF_VIEW;
-    } else {
-        share_offset.right = Constants::Environment::SHARED_SIZE;
     }
     int sub_num_yaal = num_yaals / num_chunks;
     int sub_num_plant = num_plants / num_chunks;
@@ -174,19 +152,9 @@ int main(int argc, char *argv[]) {
         sub_num_yaal += num_yaals % num_chunks;
         sub_num_plant += num_plants % num_chunks;
     }
-    std::cout << "Subenvironment " << mpi_rank << " at " << row << " " << column << " with size " << sub_height << " "
-              << sub_width << std::endl;
-    auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values);
-    env.yaals.reserve(num_yaals);
-    for (int i = 0; i < num_yaals; i++) {
-        Yaal yaal = Yaal::random(num_channels);
-        int ms = Constants::Yaal::MAX_SIZE;
-        yaal.set_random_position(Vec2(ms, ms), Vec2(width - ms, height - ms));
-        env.yaals.push_back(yaal);
-    }
-    for (int t = 0; t < timesteps; t++) {
-        std::cout << "#";
-        env.step();
-    }
+    auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values,
+                           std::move(top_left_position), rows, columns);
+
+    env.create_yaals_and_plants(sub_num_yaal, sub_num_plant);
     MPI_Finalize();
 }

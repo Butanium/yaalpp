@@ -16,4 +16,8 @@ namespace Constants {
         static constexpr int FILTER_SIZE = 7;
         static constexpr int SHARED_SIZE = 2 * Yaal::MAX_FIELD_OF_VIEW + Yaal::MAX_SIZE;
     }
+    namespace MPI {
+        static constexpr int MAP_TAG = 0;
+        static constexpr int YAAL_TAG = 1;
+    }
 }

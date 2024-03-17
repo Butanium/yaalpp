@@ -33,6 +33,14 @@ bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
     return res(0);
 }
 
+bool vec_is_close(const std::vector<float> &a, const std::vector<float> &b) {
+    if (a.size() != b.size()) return false;
+    for (int i = 0; i < (int) a.size(); i++) {
+        if (std::abs(a[i] - b[i]) > Constants::EPSILON) return false;
+    }
+    return true;
+}
+
 TEST_CASE("Topology") {
     Topology t = get_topology(MPI_COMM_WORLD);
 
@@ -42,8 +50,19 @@ TEST_CASE("Topology") {
     REQUIRE(t.gpus == 1);
 }
 
-TEST_CASE("Yaal eval") {
-    SECTION("eval random yaals") {
+TEST_CASE("Yaal") {
+    SECTION("Genome Seeding") {
+        auto seed = Catch::getSeed();
+        YaalGenome::generator.seed(seed);
+        Yaal yaal = Yaal::random(3);
+        Yaal yaal2 = Yaal::random(3);
+        REQUIRE(!is_close(yaal.genome.brain.direction_weights, yaal2.genome.brain.direction_weights));
+        REQUIRE(!vec_is_close(yaal.genome.signature, yaal2.genome.signature));
+        YaalGenome::generator.seed(seed);
+        Yaal yaal3 = Yaal::random(3);
+        REQUIRE(is_close(yaal.genome.brain.direction_weights, yaal3.genome.brain.direction_weights));
+        REQUIRE(vec_is_close(yaal.genome.signature, yaal3.genome.signature));
+    }SECTION("eval random yaals") {
         for (int i = 0; i < 100; i++) {
             Yaal yaal = Yaal::random(3);
             int view_size = yaal.genome.field_of_view * 2 + yaal.genome.size;
@@ -129,7 +148,7 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
             quadTree.insert(points[i]);
         }
 
-        Vec2 *closests = new Vec2[n_points];
+        Vec2 *closests = (Vec2 *) malloc(n_points * sizeof(Vec2));
         int errors = 0;
 #pragma omp parallel for default(none) shared(quadTree, points, closests, n_points, n_threads, errors) schedule(static) num_threads(n_threads)
         for (int i = 0; i < n_points; i++) {
@@ -342,7 +361,6 @@ TEST_CASE("ENVIRONMENT") {
         }
     }SECTION("Env steps and save/load") {
         ensure_directory_exists("test_output/frames");
-        // TODO: this should pass once physics are implemented
         using Constants::Yaal::MAX_SIZE;
         auto seed = Catch::getSeed();
         Yaal::generator.seed(seed);

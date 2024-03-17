@@ -57,7 +57,7 @@ std::tuple<int, int> grid_decomposition(int n, bool allow_discard, float thresho
         if (min_ratio <= threshold) {
             return std::make_tuple(p1_min, p2_min);
         }
-        return grid_decomposition(n - 1);
+        return grid_decomposition(n - 1, allow_discard, threshold);
     } else {
         return std::make_tuple(p1_min, p2_min);
     }
