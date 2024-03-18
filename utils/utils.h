@@ -8,6 +8,8 @@ void remove_files_in_directory(const std::filesystem::path &path);
 
 void ensure_directory_exists(const std::filesystem::path &path);
 
+void remove_directory_recursively(const std::filesystem::path &path);
+
 struct Offset {
     // stores the offset of the top, bottom, left, and right of the map, for padding and shared bands
     int top;
@@ -27,6 +29,12 @@ struct Offset {
     int &operator[](int i) {
         int *n_arr = &top;
         return n_arr[i];
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Offset &o) {
+        os << "Offset(top: " << o.top << ", bottom: " << o.bottom << ", left: " << o.left << ", right: " << o.right
+           << ")";
+        return os;
     }
 
     Offset operator+(const Offset &other) const {
@@ -57,43 +65,80 @@ struct Neighbourhood {
         return n_arr[i];
     }
 
+    friend std::ostream &operator<<(std::ostream &os, const Neighbourhood &n) {
+        os << "Neighbourhood(top: " << n.top << ", bottom: " << n.bottom << ", left: " << n.left << ", right: "
+           << n.right
+           << ", top_left: " << n.top_left << ", top_right: " << n.top_right << ", bottom_left: " << n.bottom_left
+           << ", bottom_right: " << n.bottom_right << ")";
+        return os;
+    }
+
     static Neighbourhood none() {
         int n = MPI_PROC_NULL;
         return {n, n, n, n, n, n, n, n};
     }
 
-    bool add(int i, int mpi_rank, int num_rows, int num_columns) {
+    bool add(int i, int mpi_rank, int row, int column, int num_rows, int num_columns) {
         int rank = mpi_rank;
         switch (i) {
-            case 0:
-                rank -= num_columns;
+            case 0:  // top
+                if (row == 0) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank -= num_columns;
+                }
                 break;
-            case 1:
-                rank += num_columns;
+            case 1:  // bottom
+                if (row == num_rows - 1) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank += num_columns;
+                }
                 break;
-            case 2:
-                rank -= 1;
+            case 2: // left
+                if (column == 0) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank -= 1;
+                }
                 break;
-            case 3:
-                rank += 1;
+            case 3:  // right
+                if (column == num_columns - 1) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank += 1;
+                }
                 break;
-            case 4:
-                rank -= num_columns + 1;
+            case 4:  // top_left
+                if (row == 0 || column == 0) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank -= num_columns + 1;
+                }
                 break;
-            case 5:
-                rank -= num_columns - 1;
+            case 5:  // top_right
+                if (row == 0 || column == num_columns - 1) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank -= num_columns - 1;
+                }
                 break;
             case 6:
-                rank += num_columns - 1;
+                if (row == num_rows - 1 || column == 0) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank += num_columns - 1;
+                }
                 break;
             case 7:
-                rank += num_columns + 1;
+                if (row == num_rows - 1 || column == num_columns - 1) {
+                    rank = MPI_PROC_NULL;
+                } else {
+                    rank += num_columns + 1;
+                }
                 break;
             default:
                 throw std::runtime_error("Invalid neighbourhood index");
-        }
-        if (rank < 0 || rank >= num_rows * num_columns) {
-            rank = MPI_PROC_NULL;
         }
         (*this)[i] = rank;
         return rank != MPI_PROC_NULL;

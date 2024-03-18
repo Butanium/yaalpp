@@ -15,9 +15,9 @@ class Environment {
     std::tuple<int, int> pos_to_index(const Vec2 &pos);
 
 /// Store all the mpi receive results
-    std::array<std::vector<float>, 8> mpi_receive_results =
-            {{std::vector<float>(), std::vector<float>(), std::vector<float>(), std::vector<float>(),
-              std::vector<float>(), std::vector<float>(), std::vector<float>(), std::vector<float>()}};
+//    std::array<float *, 8> mpi_receive_results =
+//            {{nullptr, nullptr, nullptr, nullptr,
+//              nullptr, nullptr, nullptr, nullptr}};
     int mpi_rank = 0;
 
 
@@ -79,6 +79,13 @@ public:
         return map.slice(view_offsets, view_dims);
     }
 
+    auto real_map() {
+        Offset tot_offset = offset_padding + offset_sharing;
+        auto real_dims = array<Index, 3>{height, width, num_channels};
+        auto real_offsets = array<Index, 3>{tot_offset.top, tot_offset.left, 0};
+        return map.slice(real_offsets, real_dims);
+    }
+
     /// Add the plant body to the map
     void add_to_map(const Plant &plant);
 
@@ -104,4 +111,6 @@ public:
     void step();
 
     void create_yaals_and_plants(int num_yaal, int num_plant);
+
+    void mpi_sync();
 };

@@ -8,13 +8,13 @@ namespace Constants {
         static constexpr float MIN_SPEED = 0.1f;
         static constexpr float MAX_SPEED = 1.0f;
         static constexpr int MIN_FIELD_OF_VIEW = 1;
-        static constexpr int MAX_FIELD_OF_VIEW = 10;
+        static constexpr int MAX_FIELD_OF_VIEW = 3;
         static constexpr int MIN_SIZE = 9;
         static constexpr int MAX_SIZE = 9;
     }
     namespace Environment {
         static constexpr int FILTER_SIZE = 7;
-        static constexpr int SHARED_SIZE = 2 * Yaal::MAX_FIELD_OF_VIEW + Yaal::MAX_SIZE;
+        static constexpr int SHARED_SIZE = Yaal::MAX_FIELD_OF_VIEW + Yaal::MAX_SIZE / 2 + 1;
     }
     namespace MPI {
         static constexpr int MAP_TAG = 0;

@@ -23,9 +23,18 @@
 #include <format>
 #include "../topology/topology.h"
 
+
+#define SKIP_IF_NOT_SINGLE_MPI_PROCESS \
+    int rank; \
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); \
+    if (rank != 0) { \
+        return; \
+    }
+
 using Eigen::Tensor;
 using Eigen::array;
 using Eigen::Index;
+using std::filesystem::path;
 
 template<int N>
 bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
@@ -51,6 +60,7 @@ TEST_CASE("Topology") {
 }
 
 TEST_CASE("Yaal") {
+    SKIP_IF_NOT_SINGLE_MPI_PROCESS;
     SECTION("Genome Seeding") {
         auto seed = Catch::getSeed();
         YaalGenome::generator.seed(seed);
@@ -198,12 +208,21 @@ void test_quadtree(int n_points, int n_threads, unsigned int seed) {
 }
 
 
+TEST_CASE("Checking validity of quadtree closest neighbor search :") {
+    SKIP_IF_NOT_SINGLE_MPI_PROCESS;
+    auto seed = Catch::getSeed();
+    SECTION("7 threads") {
+        test_quadtree(5000, 7, seed);
+    }SECTION("16 threads") {
+        test_quadtree(5000, 16, seed);
+    }
+}
+
 TEST_CASE("Output video 5 processes", "[output_five]") {
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     if (comm_size != 5) {
-        std::cout << "Skipping test, not 5 processes" << std::endl;
-        return;
+        SKIP("Skipping test, not 5 processes");
     }
     ensure_directory_exists("test_output");
 
@@ -237,8 +256,7 @@ TEST_CASE("Output video 4 processes", "[output_four]") {
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     if (comm_size != 4) {
-        std::cout << "Skipping test, not 4 processes" << std::endl;
-        return;
+        SKIP("Skipping test, not 4 processes");
     }
     ensure_directory_exists("test_output");
     Stream stream("test_output/output_4_mpi.mp4", 2, cv::Size(1000, 1000), 2, 2, false, MPI_COMM_WORLD);
@@ -268,8 +286,7 @@ TEST_CASE("Output video one process", "[output_single]") {
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     if (comm_size != 1) {
-        std::cout << "Skipping test, not 1 process" << std::endl;
-        return;
+        SKIP("Skipping test, not 1 process");
     }
     ensure_directory_exists("test_output");
     Stream stream("test_output/output_single_mpi.mp4", 2, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
@@ -287,15 +304,6 @@ TEST_CASE("Output video one process", "[output_single]") {
     stream.end_stream();
 }
 
-TEST_CASE("Checking validity of quadtree closest neighbor search :") {
-// Get seed from catch 2
-    auto seed = Catch::getSeed();
-    SECTION("7 threads") {
-        test_quadtree(5000, 7, seed);
-    }SECTION("16 threads") {
-        test_quadtree(5000, 16, seed);
-    }
-}
 
 // Custom main function to handle MPI initialization and finalization
 int main(int argc, char *argv[]) {
@@ -307,8 +315,10 @@ int main(int argc, char *argv[]) {
 
 
 TEST_CASE("ENVIRONMENT") {
+    SKIP_IF_NOT_SINGLE_MPI_PROCESS;
     SECTION("Add to map") {
         using Constants::Yaal::MAX_FIELD_OF_VIEW;
+
         auto decays = std::vector<float>{0, 0, 0, 0.9};
         auto max_values = std::vector<float>{1, 1, 1, 1};
         Environment env(Constants::Yaal::MAX_SIZE, Constants::Yaal::MAX_SIZE, 4, decays, decays, max_values);
@@ -365,6 +375,7 @@ TEST_CASE("ENVIRONMENT") {
         auto seed = Catch::getSeed();
         Yaal::generator.seed(seed);
         YaalGenome::generator.seed(seed);
+        int num_channels = 4;
         std::vector<float> diffusion_factors = {0., 0., 0., 2};
         std::vector<float> max_values = {1, 1, 1, 1};
         std::vector<float> decay_factors = {0, 0, 0, 0.98};
@@ -374,7 +385,7 @@ TEST_CASE("ENVIRONMENT") {
         int num_yaal = 200;
         int num_plant = 200;
         int num_steps = 60;
-        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        Environment env(height, width, num_channels, decay_factors, diffusion_factors, max_values);
         env.create_yaals_and_plants(num_yaal, num_plant);
         std::cout << "Updating yaals" << std::endl;
         remove_files_in_directory("test_output/frames");
@@ -438,5 +449,132 @@ TEST_CASE("ENVIRONMENT") {
 
         // use is_close :
         REQUIRE(is_close(env2.map, env3.map));
+    }
+}
+
+TEST_CASE("MPI_ENV") {
+    SECTION("Empty env") {
+        Topology top = get_topology(MPI_COMM_WORLD);
+        int mpi_rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+        auto seed = Catch::getSeed();
+        Yaal::generator.seed(seed + mpi_rank);
+        YaalGenome::generator.seed(seed + mpi_rank);
+        std::cout << "Hello from rank!" << mpi_rank << " of " << top.processes << " processes" << std::endl;
+        std::cout << "Running with " << top.cores_per_process << " cores per process and " << top.gpus << " gpus"
+                  << " with a total of " << top.gpus_memory << "MB of GPU memory" << std::endl;
+        std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
+        // Divide the environment into subenvironments
+        int height = 10;
+        int width = 10;
+        bool allow_idle = false;
+        auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
+        if (rows > columns && width > height) {
+            int temp = rows;
+            rows = columns;
+            columns = temp;
+        }
+        assert(allow_idle || (columns * rows == top.processes));
+        if (columns * rows <= mpi_rank) {
+            std::cout << "Rank " << mpi_rank << " is idle" << std::endl;
+            MPI_Finalize();
+            return;
+        }
+        int num_chunks = rows * columns;
+        int sub_height = height / rows;
+        int sub_width = width / columns;
+        int row = mpi_rank / columns;
+        int column = mpi_rank % columns;
+        Vec2 top_left_position((float) (column * sub_width), (float) (row * sub_height));
+        if (row == rows - 1) {
+            sub_height += height % sub_height;
+        }
+        if (column == columns - 1) {
+            sub_width += width % sub_width;
+        }
+        int num_channels = 3;
+        std::vector<float> diffusion_rates = {0., 0., 0.};
+        std::vector<float> max_values = {1, 1, 1};
+        std::vector<float> decay_factors = {1, 1, 1};
+
+        Environment env(sub_height, sub_width, num_channels, decay_factors, diffusion_rates, max_values,
+                        std::move(top_left_position), rows, columns);
+        env.real_map().chip(mpi_rank % 3, 2).setConstant(0.8);
+        MPI_Comm solo_comm;
+        MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
+        path save_path = "test_output/mpi_empty";
+        path global_save_frame_path = save_path / "frames";
+        path global_total_frame_path = save_path / "frames/total";
+        path save_frame_path = save_path / "frames" / std::format("env_{}", mpi_rank);
+        if (mpi_rank == 0) {
+            remove_directory_recursively(save_path);
+            ensure_directory_exists(save_path);
+            ensure_directory_exists(global_total_frame_path);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        ensure_directory_exists(save_frame_path);
+        std::string video_path = save_path / std::format("env_{}.mp4", mpi_rank);
+        std::string global_video_path = save_path / "global_env.mp4";
+        std::string global_total_video_path = save_path / "global_total_env.mp4";
+        Stream solo_stream(video_path.c_str(), 10, cv::Size(env.map.dimension(1), env.map.dimension(0)), 1, 1, false,
+                           solo_comm);
+        Stream global_stream(global_video_path.c_str(), 10, cv::Size(width, height), rows, columns, false,
+                             MPI_COMM_WORLD);
+        auto total_offset = env.offset_padding + env.offset_sharing;
+        Stream global_total_stream(global_total_video_path.c_str(), 10,
+                                   cv::Size(width + total_offset.horizontal(), height + total_offset.vertical()), rows,
+                                   columns, false,
+                                   MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD); // todo remove
+        std::cout << "Starting steps" << std::endl;
+        for (int i = 0; i < 10; i++) {
+            path global_frame_path = global_save_frame_path / std::format("frame_{}.png", i);
+            path global_total_frame = global_total_frame_path / std::format("frame_{}.png", i);
+            path frame_path = save_frame_path / std::format("frame_{}.png", i);
+            solo_stream.append_frame(env.map, frame_path.c_str());
+//            global_total_stream.append_frame(env.map, global_total_frame.c_str());
+            Tensor<float, 3> map = env.real_map();
+//            global_stream.append_frame(map, global_frame_path.c_str());
+            if (mpi_rank == 0) {
+                std::cout << "================== Step " << i << " =============" << std::endl;
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            env.step();
+        }
+    }
+}
+
+
+TEST_CASE("Misc") {
+    SECTION("Neighbors Indexing") {
+        auto n1 = Neighbourhood::none();
+        auto n2 = Neighbourhood::none();
+        n1.top = 1;
+        n2[0] = 1;
+        n1.bottom = 2;
+        n2[1] = 2;
+        n1.left = 3;
+        n2[2] = 3;
+        n1.right = 4;
+        n2[3] = 4;
+        n1.top_left = 5;
+        n2[4] = 5;
+        n1.top_right = 6;
+        n2[5] = 6;
+        n1.bottom_left = 7;
+        n2[6] = 7;
+        n1.bottom_right = 8;
+        n2[7] = 8;
+        REQUIRE(n1.top == n2.top);
+        REQUIRE(n1.bottom == n2.bottom);
+        REQUIRE(n1.left == n2.left);
+        REQUIRE(n1.right == n2.right);
+        REQUIRE(n1.top_left == n2.top_left);
+        REQUIRE(n1.top_right == n2.top_right);
+        REQUIRE(n1.bottom_left == n2.bottom_left);
+        REQUIRE(n1.bottom_right == n2.bottom_right);
+        for (int i = 0; i < 8; i++) {
+            REQUIRE(n1[i] == n2[i]);
+        }
     }
 }

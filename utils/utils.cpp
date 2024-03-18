@@ -17,6 +17,12 @@ void remove_files_in_directory(const std::filesystem::path &path) {
     }
 }
 
+void remove_directory_recursively(const std::filesystem::path &path) {
+    if (std::filesystem::exists(path)) {
+        std::filesystem::remove_all(path);
+    }
+}
+
 std::vector<int> prime_decomposition(int n) {
     std::vector<int> factors;
     int i = 2;
