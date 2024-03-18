@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.27)
-project(yaalpp)
+cmake_minimum_required(VERSION 3.20)
+project(yaalpp LANGUAGES CXX CUDA)
 Include(FetchContent)
 # for performance:
 #add_compile_options(-O3 -march=native)
@@ -37,7 +37,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 # OpenCV
-find_package(OpenCV REQUIRED)
+# Check if OpenCV is installed and if not use /users/eleves-b/2024/clement.dumas/build/OpenCVConfig.cmake
+find_package(OpenCV QUIET)
+if(NOT OpenCV_FOUND)
+  set(OpenCV_DIR "${CMAKE_SOURCE_DIR}/opencv/build")
+  find_package(OpenCV REQUIRED NO_MODULE)
+endif()
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 link_directories( ${OpenCV_LIB_DIR} )
 
@@ -63,6 +68,10 @@ add_executable(tests tests/test.cpp
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
         utils/offset.hpp
+        topology/topology.cu
+        topology/topology.h
+        cuda/diffusion_gpu.cu
+        cuda/diffusion_gpu.h
         video/stream.cpp
         video/stream.h
         utils/utils.cpp

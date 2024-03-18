@@ -1,3 +1,4 @@
+#include <cstdio>
 #define CATCH_CONFIG_RUNNER
 
 #include <catch2/catch_session.hpp>
@@ -20,7 +21,7 @@
 #include "../utils/save.hpp"
 #include <catch2/catch_get_random_seed.hpp>
 #include <vector>
-#include <format>
+#include "../topology/topology.h"
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -32,6 +33,14 @@ bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
     return res(0);
 }
 
+TEST_CASE("Topology") {
+   Topology t = get_topology(MPI_COMM_WORLD);
+
+    REQUIRE(t.nodes == 1);
+    REQUIRE(t.processes == 1);
+    REQUIRE(t.cores_per_process >= 1);
+    REQUIRE(t.gpus == 1);
+}
 
 TEST_CASE("Yaal eval") {
     SECTION("eval random yaals") {
@@ -243,8 +252,8 @@ TEST_CASE("Output video one process", "[output_single]") {
         std::cout << "Skipping test, not 1 process" << std::endl;
         return;
     }
-    ensure_directory_exists("test_output");
-    Stream stream("test_output/output_single_mpi.mp4", 2, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+    ensure_directory_exists("test_output/single/frames");
+    Stream stream("test_output/single/output_single_mpi.mp4", 2, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
     Eigen::Tensor<float, 3> map(3, 3, 3);
 
     for (int i = 0; i < 10; i++) {
@@ -253,8 +262,8 @@ TEST_CASE("Output video one process", "[output_single]") {
         map(i / 3, i % 3, 0) = 1;
         map(i / 3, i % 3, 1) = 1;
         map(i / 3, i % 3, 2) = 1;
-
-        stream.append_frame(map);
+        std::string frame_name = "test_output/single/frames/frame_" + std::to_string(i) + ".png";
+        stream.append_frame(map, frame_name.c_str());
     }
     stream.end_stream();
 }
@@ -348,11 +357,14 @@ TEST_CASE("ENVIRONMENT") {
         int num_plant = 200;
         int num_steps = 60;
         Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        env.diffusion_filter.use_cuda = true;
         env.create_yaals_and_plants(num_yaal, num_plant);
         std::cout << "Updating yaals" << std::endl;
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
-            auto frame_name = std::format("test_output/frames/frame_{}.png", i);
+            std::string s = "0000";
+            sprintf(s.data(), "%04d", i); 
+            std::string frame_name = "test_output/frames/frame_" + s + ".png";
             // View the env to send the 1, 2, 3 channels instead of 0-3
             auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
             Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1},
@@ -398,13 +410,13 @@ TEST_CASE("ENVIRONMENT") {
         Environment env2 = load_environment(save_path);
         Environment env3 = load_environment(save_path);
 
+        env3.diffusion_filter.use_cuda = true; // Set filter on gpu
+
         int num_steps2 = 100;
         for (int i = 0; i < num_steps2; i++) {
             env2.step();
         }
 
-        //set omp num threads to 1
-        omp_set_num_threads(1);
         for (int i = 0; i < num_steps2; i++) {
             env3.step();
         }
@@ -412,4 +424,66 @@ TEST_CASE("ENVIRONMENT") {
         // use is_close :
         REQUIRE(is_close(env2.map, env3.map));
     }
+}
+
+TEST_CASE("DIF") {
+        using Constants::Yaal::MAX_SIZE;
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.98};
+        int height = 10;
+        int width = 10;
+        int num_yaal = 0;
+        int num_plant = 0;
+        int num_steps = 0;
+        Environment env(height, width, 4, decay_factors, diffusion_factors, max_values);
+        Stream stream("test_output/tt2/env_steps.mp4", 10, cv::Size(1000, 1000), 1, 1, false, MPI_COMM_WORLD);
+        env.create_yaals_and_plants(num_yaal, num_plant);
+	env.map(15,15,3) = 1;
+        for (int i = 0; i < num_steps; i++) {
+            env.step();
+        }
+
+        // Save and load the environment
+        std::string save_path = "./save/";
+        ensure_directory_exists(save_path);
+        save_environment(env, save_path, true);
+
+        Environment env2 = load_environment(save_path);
+        Environment env3 = load_environment(save_path);
+
+        env3.diffusion_filter.use_cuda = true; // Set filter on gpu
+
+	std::cout << "filter row :: " << env.diffusion_filter.row_filters_transpose << std::endl;
+	std::cout << "filter col :: " << env.diffusion_filter.col_filters_transpose << std::endl;
+
+	Tensor<float, 2> envmap_chip = env.map.chip(3,2);
+	std::cout << "env map :: " << envmap_chip << std::endl;
+
+        int num_steps2 = 1;
+        for (int i = 0; i < num_steps2; i++) {
+            env2.step();
+        }
+
+        for (int i = 0; i < num_steps2; i++) {
+            env3.step();
+        }
+
+	std::string frame2 = "test_output/tt2/frame_env2.png";
+	std::string frame3 = "test_output/tt2/frame_env3.png";
+        auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
+        Tensor<float, 3> reshaped_map2 = env2.map.slice(array<Index, 3>{fov, fov, 1},
+                                                      array<Index, 3>{height, width, 3});
+        Tensor<float, 3> reshaped_map3 = env3.map.slice(array<Index, 3>{fov, fov, 1},
+                                                      array<Index, 3>{height, width, 3});
+        stream.append_frame(reshaped_map2, frame2.c_str());
+        stream.append_frame(reshaped_map3, frame3.c_str());
+
+	Tensor<float, 2> envmap2_chip = env2.map.chip(3,2);
+	std::cout << "env2 map :: " << envmap2_chip << std::endl;
+
+	Tensor<float, 2> envmap3_chip = env3.map.chip(3,2);
+	std::cout << "env3(gpu) map :: " << envmap3_chip << std::endl;
+        // use is_close :
+        REQUIRE(is_close(env2.map, env3.map));
 }
