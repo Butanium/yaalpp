@@ -53,11 +53,11 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     help_groups["Environment Hyperparameters"] = {
             program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
-                    std::vector<float>{0, 0, 0, 0.9, 0.8, 0.5}
+                    std::vector<float>{0, 0, 0, 0.99, 0.98, 0.97}
             ),
             program.add_argument("-d", "--diffusion-rate").help("Diffusion rate for channel").nargs(
                             argparse::nargs_pattern::at_least_one)
-                    .scan<'f', float>().default_value(std::vector<float>{0, 0, 0, 0.1, 0.9}),
+                    .scan<'f', float>().default_value(std::vector<float>{0, 0, 0, 10, 19}),
             program.add_argument("-m", "--max-values").help("Max values for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
                     std::vector<float>{1, 1, 1, 5, 5})
