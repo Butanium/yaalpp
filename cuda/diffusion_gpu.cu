@@ -1,6 +1,6 @@
 #include "diffusion_gpu.h"
 #include <cuda.h>
-#include "../utils/offset.hpp"
+#include "../utils/utils.h"
 #include <stdio.h>
 
 __global__ void filterApplyColKernel(float *input, float *output, int width, int height, int channels, Offset offset, int filter_size, float *col_filter) {

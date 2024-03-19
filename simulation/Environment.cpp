@@ -42,30 +42,11 @@ Environment::Environment(int height, int width,
         decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
         max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})),
         mpi_world(mpi_world) {
-    MPI_Comm_rank(mpi_world, &mpi_rank
-    );
+    MPI_Comm_rank(mpi_world, &mpi_rank);
     mpi_row = mpi_rank / num_mpi_columns;
     mpi_column = mpi_rank % num_mpi_columns;
-//@formatter:off todo :remove
-    const std::array<int, 8> sharing_sizes = {{
-        (int) SHARED_SIZE * width * num_channels,// top
-        (int) SHARED_SIZE * width * num_channels,// bottom
-        (int) height * SHARED_SIZE * num_channels,// left
-        (int) height * SHARED_SIZE * num_channels,// right
-        (int) SHARED_SIZE * SHARED_SIZE * num_channels,// top_left
-        (int) SHARED_SIZE * SHARED_SIZE * num_channels,// top_right
-        (int) SHARED_SIZE * SHARED_SIZE * num_channels,// bottom_left
-        (int) SHARED_SIZE * SHARED_SIZE * num_channels,// bottom_right
-    }};
-    //@formatter:on
-    for (
-            int i = 0;
-            i < 8; i++) {
-        if (neighbourhood.
-                add(i, mpi_rank, mpi_row, mpi_column, num_mpi_rows, num_mpi_columns
-        )) {
-//            mpi_receive_results[i] = new float[sharing_sizes[i]];
-        }
+    for (int i = 0; i < 8; i++) {
+        neighbourhood.add(i, mpi_rank, mpi_row, mpi_column, num_mpi_rows, num_mpi_columns)
     }
     for (int i = 0; i < 4; i++) {
         if (neighbourhood[i] != MPI_PROC_NULL) {
@@ -301,7 +282,7 @@ void Environment::mpi_sync() {
     }
 
 //TODO? This doesn't speed up the process for now but it could be useful if we want to do something else while waiting for the receives
-#p/* ragma omp parallel shared(recv_requests, mpi_receive_results, recv_offsets, share_dims, to_recv, std::cout, map, mpi_rank, neighbourhood, std::cerr)
+/* #pragma omp parallel shared(recv_requests, mpi_receive_results, recv_offsets, share_dims, to_recv, std::cout, map, mpi_rank, neighbourhood, std::cerr)
     {
 #pragma omp single nowait
         {
@@ -344,15 +325,8 @@ void Environment::step() {
      * */
     mpi_sync();
     auto tot_offset = offset_padding + offset_sharing;
-#pragma omp parallel for schedule(static) // TODO perf: check if dynamic is useful
+#pragma omp parallel for schedule(static)
     for (auto &yaal: yaals) {
-        // todo remove
-        Vec2 relative_pos = yaal.position - top_left_position;
-        if (relative_pos.x() < MAX_SIZE / 2.f || relative_pos.y() < MAX_SIZE / 2.f ||
-            relative_pos.x() > width - MAX_SIZE / 2.f || relative_pos.y() > height - MAX_SIZE / 2.f) {
-            std::cout << "Skipping Yaal: " << yaal.position << " is out of sub env bounds" << std::endl;
-            continue;
-        }
         auto view = get_view(yaal);
         yaal.update(view);
     }
