@@ -67,9 +67,7 @@ Environment::Environment(int height, int width,
 //            mpi_receive_results[i] = new float[sharing_sizes[i]];
         }
     }
-    for (
-            int i = 0;
-            i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
         if (neighbourhood[i] != MPI_PROC_NULL) {
             offset_sharing[i] =
                     SHARED_SIZE;
@@ -83,16 +81,8 @@ Environment::Environment(int height, int width,
             height + offset_padding.top + offset_padding.bottom + offset_sharing.top + offset_sharing.bottom,
             width + offset_padding.left + offset_padding.right + offset_sharing.left + offset_sharing.right,
             channels);
-    map.
+    map.setZero();
 
-            setZero();
-
-    std::cout << "\nSubenvironment " << mpi_rank << " at r,c:" << mpi_row << "," << mpi_column << "position: "
-              << top_left_position[0] << ", " << top_left_position[1] << " with size " << height << " "
-              << width << "\nNeighborhood: " << neighbourhood << "\nSharing offset" << offset_sharing
-              << "\nPadding offset"
-              << offset_padding <<
-              std::endl;
 }
 
 Environment::Environment(int height, int width, int channels, Eigen::TensorMap<Tensor<float, 3>> decay_factors,
@@ -293,12 +283,10 @@ void Environment::mpi_sync() {
         MPI_Request send_request;
         MPI_Isend(mpi_sent_tensors[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
                   &send_request);
-//        MPI_Send(neighbor_map.data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world);
-//        MPI_Irecv(mpi_receive_results[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
-//                  &recv_requests[i]);
+    /*   TODO? this can be reverted back if leveraging omp is actually useful 
+        MPI_Irecv(mpi_receive_results[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
+                 &recv_requests[i]); */
     }
-    // When a receive is done, add the data to the map
-    // To do that we create an omp task per receive request
     for (int i = 0; i < 8; i++) {
         if (neighbourhood[i] == MPI_PROC_NULL) {
             continue;
@@ -311,18 +299,18 @@ void Environment::mpi_sync() {
         auto received_tensor = mpi_receive_results[i];
         map.slice(offset, dims) = received_tensor;
     }
-/*
-#pragma omp parallel shared(recv_requests, mpi_receive_results, recv_offsets, share_dims, to_recv, std::cout, map, mpi_rank, neighbourhood, std::cerr)
+
+//TODO? This doesn't speed up the process for now but it could be useful if we want to do something else while waiting for the receives
+#p/* ragma omp parallel shared(recv_requests, mpi_receive_results, recv_offsets, share_dims, to_recv, std::cout, map, mpi_rank, neighbourhood, std::cerr)
     {
 #pragma omp single nowait
         {
             while (to_recv > 0) {
                 int completed_idx;
-                // TODO: check that test any won't return the same index twice
                 MPI_Waitany(8, recv_requests.data(), &completed_idx, MPI_STATUS_IGNORE);
                 if (completed_idx != MPI_UNDEFINED) {
-                    std::cout << "Process " << mpi_rank << " received map from " << neighbourhood[completed_idx]
-                              << "\n";
+                    // std::cout << "Process " << mpi_rank << " received map from " << neighbourhood[completed_idx]
+                    //           << "\n";
                     to_recv--;
 #pragma omp task default(none) shared(map, mpi_receive_results, recv_offsets, share_dims, neighbourhood, std::cerr) firstprivate(completed_idx)
                     {
@@ -332,13 +320,13 @@ void Environment::mpi_sync() {
                         map.slice(offset, dims) = received_tensor;
                     }
                 } else {
-                    std::cout << "Process " << mpi_rank << " received MPI_UNDEFINED" << std::endl;
+                    std::cerr << "Process " << mpi_rank << " received MPI_UNDEFINED" << std::endl;
                     throw std::runtime_error("MPI_UNDEFINED received from waitany");
                 }
             }
         }
-    }
-*/
+    } */
+
     MPI_Barrier(mpi_world);
 
 }

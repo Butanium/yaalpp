@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(yaalpp LANGUAGES CXX CUDA)
 Include(FetchContent)
 # for performance:
-#add_compile_options(-O3 -march=native)
+add_compile_options(-O3 -march=native)
 add_compile_options(-fopenmp -std=c++20)
 # add_compile_options(-Wall) # for all warnings
 # for debug: add_compile_options(-O0)
