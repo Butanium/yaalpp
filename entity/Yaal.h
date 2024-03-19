@@ -1,17 +1,19 @@
 //
 // Created by clementd on 31/01/24.
 //
+#pragma once
 
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../Constants.h"
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
 
-#ifndef YAALPP_CREATURE_H
-#define YAALPP_CREATURE_H
 
 using Eigen::Tensor;
 using Vec2 = Eigen::Vector2f;
 using Eigen::array;
+
 
 Tensor<float, 3> direction_matrix(int height, int width);
 
@@ -34,6 +36,15 @@ struct YaalDecision {
 //    YaalAction action;
     Vec2 direction;
     float speed_factor;
+};
+
+struct SerializedYaalMLP {
+    std::vector<float> direction_weights;
+
+    template<class Archive>
+    void serialize(Archive &ar, const unsigned int version) {
+        ar & direction_weights;
+    }
 };
 
 /**
@@ -71,6 +82,7 @@ class YaalMLP {
 
 public:
     Tensor<float, 1> direction_weights;
+
 //    Tensor<float, 1> speed_weights;
 //    float speed_bias;
 //    Tensor<float, 2> action_weights;
@@ -92,10 +104,42 @@ public:
                 .speed_factor = 1.0f,
         };
     }
+
+    SerializedYaalMLP to_serialized() const {
+        SerializedYaalMLP serialized;
+        serialized.direction_weights = std::vector<float>(direction_weights.data(),
+                                                          direction_weights.data() + direction_weights.size());
+        return serialized;
+    }
+
+    static YaalMLP from_serialized(const SerializedYaalMLP &serialized) {
+        Tensor<float, 1> dir_weights = Eigen::TensorMap<Tensor<float, 1>>(
+                const_cast<float *>(serialized.direction_weights.data()), serialized.direction_weights.size());
+        return {.direction_weights = dir_weights,};
+    }
+};
+
+
+struct SerializedYaalGenome {
+    SerializedYaalMLP brain;
+    float max_speed;
+    int field_of_view;
+    int size;
+    std::vector<float> signature;
+
+    template<class Archive>
+    void serialize(Archive &ar, const unsigned int version) {
+        ar & brain;
+        ar & max_speed;
+        ar & field_of_view;
+        ar & size;
+        ar & signature;
+    }
 };
 
 /// The genome of a Yaal. Contains the brain and other fixed parameters
 class YaalGenome {
+
 public:
     YaalMLP brain;
     float max_speed;
@@ -110,7 +154,28 @@ public:
 //    float max_size;
 //    float init_size;
     static std::mt19937 generator;
+
+    SerializedYaalGenome to_serialized() const {
+        SerializedYaalGenome serialized;
+        serialized.brain = brain.to_serialized();
+        serialized.max_speed = max_speed;
+        serialized.field_of_view = field_of_view;
+        serialized.size = size;
+        serialized.signature = signature;
+        return serialized;
+    }
+
+    static YaalGenome from_serialized(const SerializedYaalGenome &serialized) {
+        YaalGenome yaalGenome;
+        yaalGenome.brain = YaalMLP::from_serialized(serialized.brain);
+        yaalGenome.max_speed = serialized.max_speed;
+        yaalGenome.field_of_view = serialized.field_of_view;
+        yaalGenome.size = serialized.size;
+        yaalGenome.signature = serialized.signature;
+        return yaalGenome;
+    }
 };
+
 
 /** The state of a Yaal.
  * Contains the health, energy, age, etc. Those are the parameters that can change during the Yaal's life
@@ -123,12 +188,32 @@ public:
 //    double age;
 //};
 
+struct SerializedYaal {
+    float position_x;
+    float position_y;
+    SerializedYaalGenome genome;
+
+    template<class Archive>
+    void serialize(Archive &ar, const unsigned int version) {
+        ar & position_x;
+        ar & position_y;
+        ar & genome;
+    }
+};
+
 /**
  * A Yaal
  * This is the class of the creatures that will evolve in the simulation
  */
 class Yaal {
+
 public:
+    //    YaalState internal_state;
+    Vec2 position;
+    Vec2 direction;
+    YaalGenome genome;
+    Tensor<float, 3> body;
+
     /**
      * Construct a Yaal
      * @param position The initial position
@@ -140,19 +225,11 @@ public:
 
     static std::mt19937 generator;
 
-/**
-     * Generate a random Yaal
-     */
+    /// Generate a random Yaal
     static Yaal random(int num_channels, const Vec2 &position);
 
     static Yaal random(int num_channels);
 
-
-//    YaalState internal_state;
-    Vec2 position;
-    Vec2 direction;
-    YaalGenome genome;
-    Tensor<float, 3> body;
 
     /**
      * Update the Yaal's state position, direction, speed, etc.
@@ -176,7 +253,20 @@ public:
      * Return the position of the top left corner of the Yaal's bodyf
      */
     Vec2 top_left_position() const;
+
+    SerializedYaal to_serialized() const {
+        SerializedYaal serialized;
+        serialized.position_x = position.x();
+        serialized.position_y = position.y();
+        serialized.genome = genome.to_serialized();
+        return serialized;
+    }
+
+    static Yaal from_serialized(const SerializedYaal &serialized) {
+        YaalGenome genome = YaalGenome::from_serialized(serialized.genome);
+        Yaal yaal(Vec2(serialized.position_x, serialized.position_y),
+                  std::move(genome),
+                  std::move(genome.generate_body()));
+        return yaal;
+    }
 };
-
-
-#endif //YAALPP_CREATURE_H

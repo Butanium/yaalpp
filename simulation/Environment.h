@@ -53,7 +53,7 @@ public:
                 const SeparableFilter &diffusion_filter,
                 int offset_padding_top, int offset_padding_bottom, int offset_padding_left, int offset_padding_right,
                 Vec2 top_left_position,
-                std::vector<Yaal> _yaals,
+                std::vector<Yaal> yaals_,
                 std::vector<Plant> plants_);
 
 

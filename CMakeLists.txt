@@ -6,6 +6,8 @@ Include(FetchContent)
 add_compile_options(-fopenmp -std=c++20)
 add_compile_options(-Wall) # for all warnings
 # for debug: add_compile_options(-O0)
+find_package(Boost REQUIRED COMPONENTS serialization mpi)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Test library
 FetchContent_Declare(
@@ -74,7 +76,7 @@ add_executable(tests tests/test.cpp
         utils/save.cpp
 
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -101,4 +103,4 @@ add_executable(yaalpp main.cpp
         utils/save.hpp
         utils/save.cpp
 )
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json)
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})

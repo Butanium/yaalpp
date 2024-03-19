@@ -13,16 +13,14 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <random>
 #include <iostream>
-#include "../Constants.h"
 #include "../physics/quadtree.hpp"
 #include "../simulation/Environment.h"
-#include "../utils/utils.h"
 #include "../utils/save.hpp"
+#include "../utils/utils.h"
 #include <catch2/catch_get_random_seed.hpp>
 #include <vector>
 #include <format>
-#include "../topology/topology.h"
-
+#include <boost/mpi.hpp>
 
 #define SKIP_IF_NOT_SINGLE_MPI_PROCESS \
     int rank; \
@@ -35,12 +33,6 @@ using Eigen::Tensor;
 using Eigen::array;
 using Eigen::Index;
 using std::filesystem::path;
-
-template<int N>
-bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
-    Tensor<bool, 0> res = ((a - b).abs() < Constants::EPSILON).all();
-    return res(0);
-}
 
 bool vec_is_close(const std::vector<float> &a, const std::vector<float> &b) {
     if (a.size() != b.size()) return false;
@@ -453,10 +445,12 @@ TEST_CASE("ENVIRONMENT") {
 }
 
 TEST_CASE("MPI_ENV") {
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    Topology top = get_topology(MPI_COMM_WORLD);
+    MPI_Comm solo_comm;
+    MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
     SECTION("Empty env") {
-        Topology top = get_topology(MPI_COMM_WORLD);
-        int mpi_rank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
         auto seed = Catch::getSeed();
         Yaal::generator.seed(seed + mpi_rank);
         YaalGenome::generator.seed(seed + mpi_rank);
@@ -465,8 +459,8 @@ TEST_CASE("MPI_ENV") {
                   << " with a total of " << top.gpus_memory << "MB of GPU memory" << std::endl;
         std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
         // Divide the environment into subenvironments
-        int height = 10;
-        int width = 10;
+        int height = 60;
+        int width = 60;
         bool allow_idle = false;
         auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
         if (rows > columns && width > height) {
@@ -500,8 +494,6 @@ TEST_CASE("MPI_ENV") {
         Environment env(sub_height, sub_width, num_channels, decay_factors, diffusion_rates, max_values,
                         std::move(top_left_position), rows, columns);
         env.real_map().chip(mpi_rank % 3, 2).setConstant(0.8);
-        MPI_Comm solo_comm;
-        MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
         path save_path = "test_output/mpi_empty";
         path global_save_frame_path = save_path / "frames";
         path global_total_frame_path = save_path / "frames/total";
@@ -522,7 +514,7 @@ TEST_CASE("MPI_ENV") {
                              MPI_COMM_WORLD);
         auto total_offset = env.offset_padding + env.offset_sharing;
         Stream global_total_stream(global_total_video_path.c_str(), 10,
-                                   cv::Size(width + total_offset.horizontal(), height + total_offset.vertical()), rows,
+                                   cv::Size(width * 2, height * 2), rows,
                                    columns, false,
                                    MPI_COMM_WORLD);
         MPI_Barrier(MPI_COMM_WORLD); // todo remove
@@ -534,12 +526,183 @@ TEST_CASE("MPI_ENV") {
             solo_stream.append_frame(env.map, frame_path.c_str());
 //            global_total_stream.append_frame(env.map, global_total_frame.c_str());
             Tensor<float, 3> map = env.real_map();
+            std::cout << map.dimensions() << " of " << height << "," << width << std::endl;
 //            global_stream.append_frame(map, global_frame_path.c_str());
             if (mpi_rank == 0) {
                 std::cout << "================== Step " << i << " =============" << std::endl;
             }
             MPI_Barrier(MPI_COMM_WORLD);
             env.step();
+        }
+    }
+
+    SECTION("Diffusion determinism") {
+        int num_channels = 4;
+        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> max_values = {1, 1, 1, 1};
+        std::vector<float> decay_factors = {0, 0, 0, 0.99};
+        int height = 500;
+        int width = 500;
+        int num_steps = 10;
+        Environment base_env(height, width, num_channels, decay_factors, diffusion_factors, max_values);
+        base_env.map.slice(array<Index, 3>{200, 200, 3}, array<Index, 3>{100, 100, 1}).setConstant(1);
+        std::cout << "Set base_env" << std::endl;
+        bool allow_idle = false;
+        auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
+        std::cout << "got grid" << std::endl;
+        if (rows > columns && width > height) {
+            int temp = rows;
+            rows = columns;
+            columns = temp;
+        }
+        assert(allow_idle || (columns * rows == top.processes));
+        if (columns * rows <= mpi_rank) {
+            std::cout << "Rank " << mpi_rank << " is idle" << std::endl;
+            MPI_Finalize();
+            return;
+        }
+        int num_chunks = rows * columns;
+        int sub_height = height / rows;
+        int sub_width = width / columns;
+        int row = mpi_rank / columns;
+        int column = mpi_rank % columns;
+        Vec2 top_left_position((float) (column * sub_width), (float) (row * sub_height));
+        if (row == rows - 1) {
+            sub_height += height % sub_height;
+        }
+        if (column == columns - 1) {
+            sub_width += width % sub_width;
+        }
+        std::cout << "Creating env" << std::endl;
+        std::vector<float> diffusion_factors2 = {0., 0., 0., 2};  // to dodge the move
+        Environment sub_env(sub_height, sub_width, num_channels, decay_factors, diffusion_factors2, max_values,
+                            std::move(top_left_position), rows, columns);
+        // Add 1 to the sub_env if needed. The concatenated map will be the same as the base_env
+        std::cout << "created sub_env" << std::endl;
+        Vec2 start_pos = {200.f, 200.f};
+        Vec2 end_pos = {300.f, 300.f};
+        if (!((end_pos.x() < sub_env.top_left_position.x() && end_pos.y() < sub_env.top_left_position.y()) ||
+              (start_pos.x() > sub_env.top_left_position.x() + sub_env.width &&
+               start_pos.y() > sub_env.top_left_position.y() + sub_env.height))) {
+            array<Index, 3> offsets = {std::max(0l, (Index) (start_pos.y() - sub_env.top_left_position.y())),
+                                       std::max(0l, (Index) (start_pos.x() - sub_env.top_left_position.x())),
+                                       3};
+            array<Index, 3> sizes = {
+                    std::min((Index) sub_env.height - offsets[0],
+                             (Index) (end_pos.y() - sub_env.top_left_position.y())),
+                    std::min((Index) sub_env.width - offsets[1], (Index) (end_pos.x() - sub_env.top_left_position.x())),
+                    1};
+            Eigen::TensorMap<Tensor<Index, 1>> offsets_t(offsets.data(), 3);
+            Eigen::TensorMap<Tensor<Index, 1>> sizes_t(sizes.data(), 3);
+            std::cout << "position: " << sub_env.top_left_position << "Setting to 1 using offsets: " << offsets_t
+                      << " and sizes: " << sizes_t << std::endl;
+            sub_env.real_map().slice(offsets, sizes).setConstant(1);
+        }
+        path save_path = "test_output/diffusion_determinism";
+        path total_frames_path = save_path / "frames_total";
+        path frame_path = save_path / "frames";
+        if (mpi_rank == 0) {
+            remove_directory_recursively(save_path);
+            ensure_directory_exists(frame_path);
+            ensure_directory_exists(total_frames_path);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (mpi_rank == 0) {
+            path base_frame_path = save_path / "frames_base";
+            ensure_directory_exists(base_frame_path);
+            Stream base_stream((save_path / "base_env.mp4").c_str(), 10, cv::Size(width, height), 1, 1, false,
+                               solo_comm);
+            for (int i = 0; i < num_steps; i++) {
+                path base_frame_path_png = base_frame_path / std::format("frame_{}.png", i);
+                Tensor<float, 3> real_map = base_env.real_map().slice(array<Index, 3>{0, 0, 1},
+                                                                      array<Index, 3>{height, width, 3});
+                base_stream.append_frame(real_map, base_frame_path_png.c_str());
+                base_env.step();
+            }
+        } else {
+            for (int i = 0; i < num_steps; i++) {
+                base_env.step();
+            }
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        path global_video_path = save_path / "global_env.mp4";
+        path global_total_video_path = save_path / "global_total_env.mp4";
+        Stream global_stream(global_video_path.c_str(), 10, cv::Size(width, height), rows, columns, false,
+                             MPI_COMM_WORLD);
+        Stream global_total_stream(global_total_video_path.c_str(), 10,
+                                   cv::Size(width * 2, height * 2), rows,
+                                   columns, false,
+                                   MPI_COMM_WORLD);
+        sub_env.mpi_sync();
+        for (int i = 0; i < num_steps; i++) {
+            path global_frame_path = frame_path / std::format("frame_{}.png", i);
+            Tensor<float, 3> real_map = sub_env.real_map().slice(array<Index, 3>{0, 0, 1},
+                                                                 array<Index, 3>{sub_height, sub_width, 3});
+            global_stream.append_frame(real_map, global_frame_path.c_str());
+            Tensor<float, 3> total_map = sub_env.map.slice(array<Index, 3>{0, 0, 1},
+                                                           array<Index, 3>{sub_env.map.dimension(0),
+                                                                           sub_env.map.dimension(1), 3});
+            global_total_stream.append_frame(total_map, (total_frames_path / std::format("frame_{}.png", i)).c_str());
+            sub_env.step();
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        Tensor<float, 3> my_chunk = base_env.real_map().slice(array<Index, 3>{(Index) sub_env.top_left_position.y(),
+                                                                              (Index) sub_env.top_left_position.x(), 0},
+                                                              array<Index, 3>{sub_env.height, sub_env.width,
+                                                                              num_channels});
+        Tensor<float, 3> my_map = sub_env.real_map();
+        REQUIRE(is_close(my_chunk, my_map));
+    }
+    int comm_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size < 2) {
+        SKIP("Skipping test, not < 2 processes");
+    }
+    boost::mpi::environment env;
+    boost::mpi::communicator world;
+    SECTION("SEND YAALMLP") {
+        int seed = 42;
+        YaalGenome::generator.seed(seed);
+        YaalMLP source = YaalGenome::random(3).brain;
+        if (world.rank() == 0) {
+            world.send(1, 0, source.to_serialized());
+        } else if (world.rank() == 1) {
+            SerializedYaalMLP target_serialized;
+            world.recv(0, 0, target_serialized);
+            YaalMLP target = YaalMLP::from_serialized(target_serialized);
+            REQUIRE(is_close(source.direction_weights, target.direction_weights));
+        }
+
+    }SECTION("SEND YaalGenome") {
+        int seed = 42;
+        YaalGenome::generator.seed(seed);
+        YaalGenome source = YaalGenome::random(3);
+        if (world.rank() == 0) {
+            world.send(1, 0, source.to_serialized());
+        } else if (world.rank() == 1) {
+            SerializedYaalGenome target_serialized;
+            world.recv(0, 0, target_serialized);
+            YaalGenome target = YaalGenome::from_serialized(target_serialized);
+            REQUIRE(is_close(source.brain.direction_weights, target.brain.direction_weights));
+            REQUIRE(vec_is_close(source.signature, target.signature));
+        }
+    }SECTION("SEND YAAL") {
+        int seed = 42;
+        Yaal::generator.seed(seed);
+        int num_channels = 4;
+        Yaal source = Yaal::random(num_channels);
+        if (world.rank() == 0) {
+            world.send(1, 0, source.to_serialized());
+        } else if (world.rank() == 1) {
+            SerializedYaal target_serialized;
+            world.recv(0, 0, target_serialized);
+            Yaal target = Yaal::from_serialized(target_serialized);
+            REQUIRE(is_close(source.body, target.body));
+            REQUIRE(is_close(source.genome.brain.direction_weights, target.genome.brain.direction_weights));
+            REQUIRE(vec_is_close(source.genome.signature, target.genome.signature));
+            REQUIRE((source.position - target.position).cwiseAbs().isMuchSmallerThan(Constants::EPSILON));
         }
     }
 }
@@ -575,6 +738,22 @@ TEST_CASE("Misc") {
         REQUIRE(n1.bottom_right == n2.bottom_right);
         for (int i = 0; i < 8; i++) {
             REQUIRE(n1[i] == n2[i]);
+        }
+    }SECTION("MPI Boost send vector") {
+        int comm_size;
+        MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+        if (comm_size < 2) {
+            SKIP("Skipping test, not < 2 processes");
+        }
+        boost::mpi::environment env;
+        boost::mpi::communicator world;
+        std::vector<int> source = {1, 2, 3, 4};
+        if (world.rank() == 0) {
+            world.send(1, 0, source);
+        } else if (world.rank() == 1) {
+            std::vector<int> target;
+            world.recv(0, 0, target);
+            REQUIRE(source == target);
         }
     }
 }

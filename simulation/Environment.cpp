@@ -3,6 +3,8 @@
 #include "Environment.h"
 #include "../physics/quadtree.hpp"
 #include <set>
+#include <boost/mpi.hpp>
+
 using Constants::Yaal::MAX_FIELD_OF_VIEW;
 using Constants::Yaal::MAX_SIZE;
 using Eigen::array;
@@ -17,27 +19,13 @@ Environment::Environment(int height, int width, int channels,
                          std::vector<float> &_diffusion_factor,
                          std::vector<float> &max_values_v) :
         map(Tensor<float, 3>(height + 2 * MAX_FIELD_OF_VIEW, width + 2 * MAX_FIELD_OF_VIEW, channels)), height(height),
-        width(width),
-        num_channels(channels),
+        width(width), num_channels(channels),
         offset_padding(
                 {.top =  MAX_FIELD_OF_VIEW, .bottom =  MAX_FIELD_OF_VIEW, .left =  MAX_FIELD_OF_VIEW, .right =  MAX_FIELD_OF_VIEW}),
         diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(_diffusion_factor))),
-        decay_factors(Eigen::TensorMap<Tensor<float, 3>>
-
-                              (decay_factors_v.
-
-                                      data(), array<Index, 3>{1, 1, channels}
-
-                              )),
-        max_values(Eigen::TensorMap<Tensor<float, 3>>
-                           (max_values_v.
-
-                                   data(), array<Index, 3>{1, 1, channels}
-
-                           )) {
-    map.
-
-            setZero();
+        decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
+        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
+    map.setZero();
 
 }
 
@@ -48,24 +36,11 @@ Environment::Environment(int height, int width,
                          std::vector<float> &max_values_v,
                          Vec2 &&_top_left_position,
                          int num_mpi_rows, int num_mpi_columns) :
-        height(height),
-        width(width),
-        num_channels(channels),
+        height(height), width(width), num_channels(channels),
         top_left_position(std::move(_top_left_position)),
         diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(_diffusion_factor))),
-        decay_factors(Eigen::TensorMap<Tensor<float, 3>>
-
-                              (decay_factors_v.
-
-                                      data(), array<Index, 3>{1, 1, channels}
-
-                              )),
-        max_values(Eigen::TensorMap<Tensor<float, 3>>
-                           (max_values_v.
-
-                                   data(), array<Index, 3>{1, 1, channels}
-
-                           )) {
+        decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
+        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank
     );
     mpi_row = mpi_rank / num_mpi_columns;
@@ -119,29 +94,17 @@ Environment::Environment(int height, int width,
               std::endl;
 }
 
-Environment::Environment(int height, int width, int channels, Eigen::TensorMap<Tensor<float, 3>>
-
-decay_factors,
+Environment::Environment(int height, int width, int channels, Eigen::TensorMap<Tensor<float, 3>> decay_factors,
                          Eigen::TensorMap<Tensor<float, 3>>
-                         max_values,
-                         const SeparableFilter &diffusion_filter,
-                         int offset_padding_top,
-                         int offset_padding_bottom,
-                         int offset_padding_left,
-                         int offset_padding_right, Vec2
-                         top_left_position,
-                         std::vector<Yaal> _yaals,
-                         std::vector<Plant>
-                         plants_) :
-
-        height(height),
-        width(width),
-        num_channels(channels),
+                         max_values, const SeparableFilter &diffusion_filter, int offset_padding_top,
+                         int offset_padding_bottom, int offset_padding_left, int offset_padding_right,
+                         Vec2 top_left_position, std::vector<Yaal> yaals_, std::vector<Plant> plants_):
+        height(height), width(width), num_channels(channels),
         offset_padding(
                 {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
         top_left_position(std::move(top_left_position)),
         diffusion_filter(diffusion_filter),
-        yaals(std::move(_yaals)),
+        yaals(std::move(yaals_)),
         plants(std::move(plants_)), decay_factors(decay_factors),
         max_values(max_values) {
     map = Tensor<float, 3>(height + offset_padding.vertical(), width + offset_padding.horizontal(), channels);
@@ -155,22 +118,16 @@ decay_factors,
 }
 
 Environment::Environment(Tensor<float, 3> &&map_,
-                         Eigen::TensorMap<Tensor<float, 3>>
-
-                         decay_factors,
-                         Eigen::TensorMap<Tensor<float, 3>>
-                         max_values,
+                         Eigen::TensorMap<Tensor<float, 3>> decay_factors,
+                         Eigen::TensorMap<Tensor<float, 3>> max_values,
                          const SeparableFilter &diffusion_filter,
                          int offset_padding_top,
                          int offset_padding_bottom,
                          int offset_padding_left,
                          int offset_padding_right,
-                         Vec2
-                         top_left_position,
+                         Vec2 top_left_position,
                          std::vector<Yaal> yaals,
-                         std::vector<Plant>
-                         plants) :
-
+                         std::vector<Plant> plants) :
         map(std::move(map_)),
         height((int) map.dimension(0) - 2 * MAX_FIELD_OF_VIEW),
         width((int) map.dimension(1) - 2 * MAX_FIELD_OF_VIEW),
@@ -327,19 +284,10 @@ void Environment::mpi_sync() {
         }
         to_recv++;
         Tensor<float, 3> neighbor_map = map.slice(send_offsets[i], share_dims[i]);
+        // TODO Remove debug
         Eigen::TensorMap<Tensor<float, 3>> t_map(neighbor_map.data(), share_dims[i]);
-        Tensor<bool, 0> test1 = ((neighbor_map.chip(mpi_rank % 3, 2) - 0.8f).abs() < Constants::EPSILON).all();
-        Tensor<bool, 0> test2 = (neighbor_map.chip((mpi_rank+ 1) % 3, 2) < Constants::EPSILON).all();
-        Tensor<bool, 0> test3 = (neighbor_map.chip((mpi_rank+ 2) % 3, 2) < Constants::EPSILON ).all();
-        if (!test1(0)) { std::cerr << "No only 1s" << std::endl; }
-        if (!test2(0)) { std::cerr << "No only 0 in channel +1" << std::endl; }
-        if (!test3(0)) { std::cerr << "No only 0 in channel +2" << std::endl; }
-        test1 = ((t_map.chip(mpi_rank % 3, 2) - 0.8f).abs() < Constants::EPSILON).all();
-        test2 = (t_map.chip((mpi_rank + 1) % 3, 2) < Constants::EPSILON).all();
-        test3 = (t_map.chip((mpi_rank + 2) % 3, 2) < Constants::EPSILON ).all();
-        if (!test1(0)) { std::cerr << "No only 1s in tmap" << std::endl; }
-        if (!test2(0)) { std::cerr << "No only 0 in channel +1 in tmap" << std::endl; }
-        if (!test3(0)) { std::cerr << "No only 0 in channel +2 in tmap" << std::endl; }
+        Tensor<float, 3> t_map2 = t_map;
+        assert(is_close(t_map2, neighbor_map));
 
         auto shared_size = share_dims[i][0] * share_dims[i][1] * share_dims[i][2];
         mpi_receive_results[i] = new float[shared_size];
@@ -366,18 +314,6 @@ void Environment::mpi_sync() {
                     std::cout << "Process " << mpi_rank << " received map from " << neighbourhood[completed_idx]
                               << "\n";
                     to_recv--;
-                    auto dims_ = share_dims[completed_idx];
-                    auto data_ = mpi_receive_results[completed_idx];
-                    std::set<float> values;
-                    for (int i =0; i < dims_[0] * dims_[1] * dims_[2]; i++) {
-//                        values.insert(data_[i]);
-                        std::cout << data_[i] << " ";
-                    }
-//                    for (float v: values) {
-//                        std::cout << v << " ";
-//                    }
-                    std::cout << std::endl;
-
 #pragma omp task default(none) shared(map, mpi_receive_results, recv_offsets, share_dims, neighbourhood, std::cerr) firstprivate(completed_idx)
                     {
                         auto offset = recv_offsets[completed_idx];
@@ -385,17 +321,7 @@ void Environment::mpi_sync() {
                         auto data = mpi_receive_results[completed_idx];
                         auto neighbor_map = Eigen::TensorMap<Tensor<float, 3>>
                                 (data, dims);
-                        Tensor<bool, 0> test1 = ((neighbor_map.chip(neighbourhood[completed_idx] % 3, 2) - 0.8f).abs() < Constants::EPSILON).all();
-                        Tensor<bool, 0> test2 = (neighbor_map.chip((neighbourhood[completed_idx] + 1) % 3, 2) < Constants::EPSILON).all();
-                        Tensor<bool, 0> test3 = (neighbor_map.chip((neighbourhood[completed_idx] + 2) % 3, 2) < Constants::EPSILON ).all();
-                        if (!test1(0)) { std::cerr << "No only 1s in rcv" << std::endl; }
-                        if (!test2(0)) { std::cerr << "No only 0 in channel +1 in rcv" << std::endl; }
-                        if (!test3(0)) { std::cerr << "No only 0 in channel +2 in rcv" << std::endl; }
-//                        map.slice(offset, dims) = neighbor_map;
-                        Tensor<float, 3> dummy_t(dims);
-                        dummy_t.setZero();
-                        dummy_t.chip(neighbourhood[completed_idx] % 3, 2).setConstant(0.8f);
-                        map.slice(offset, dims) = dummy_t;
+                        map.slice(offset, dims) = neighbor_map;
 
                     }
                 } else {

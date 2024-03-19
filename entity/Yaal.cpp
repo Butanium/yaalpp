@@ -141,3 +141,4 @@ Yaal Yaal::random(int num_channels) {
 Vec2 Yaal::top_left_position() const {
     return position - Vec2((float) genome.size / 2.f, (float) genome.size / 2.f);
 }
+

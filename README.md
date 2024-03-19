@@ -1,6 +1,9 @@
 # yaalpp
 
 ## Requirements
+For runtime:
+- boost
+
 For saving videos:
 - opencv
 - hdf5

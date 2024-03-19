@@ -3,6 +3,16 @@
 #include <filesystem>
 #include <vector>
 #include <mpi.h>
+#include <unsupported/Eigen/CXX11/Tensor>
+#include "../Constants.h"
+
+using Eigen::Tensor;
+
+template<int N>
+bool is_close(const Tensor<float, N> &a, const Tensor<float, N> &b) {
+    Tensor<bool, 0> res = ((a - b).abs() < Constants::EPSILON).all();
+    return res(0);
+}
 
 void remove_files_in_directory(const std::filesystem::path &path);
 
