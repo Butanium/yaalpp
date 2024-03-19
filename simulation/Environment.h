@@ -72,6 +72,13 @@ public:
         return map.slice(view_offsets, view_dims);
     }
 
+    auto real_map(int channel_offset = 0) {
+        Offset tot_offset = offset_padding + offset_sharing;
+        auto real_dims = array<Index, 3>{height, width, num_channels - channel_offset};
+        auto real_offsets = array<Index, 3>{tot_offset.top, tot_offset.left, channel_offset};
+        return map.slice(real_offsets, real_dims);
+    }
+
     /// Add the plant body to the map
     void add_to_map(const Plant &plant);
 

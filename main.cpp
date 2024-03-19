@@ -18,6 +18,8 @@
 #include <sstream>
 #include "Constants.h"
 #include "topology/topology.h"
+#include "utils/utils.h"
+
 using json = nlohmann::json;
 using std::filesystem::path;
 using std::stringstream;
