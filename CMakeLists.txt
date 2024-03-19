@@ -56,8 +56,8 @@ FetchContent_MakeAvailable(argparse)
 # Check if OpenCV is installed and if not use /users/eleves-b/2024/clement.dumas/build/OpenCVConfig.cmake
 find_package(OpenCV QUIET)
 if(NOT OpenCV_FOUND)
-   set(OpenCV_DIR "/users/eleves-b/2024/clement.dumas/build")
-   find_package(OpenCV REQUIRED NO_MODULE)
+  set(OpenCV_DIR "${CMAKE_SOURCE_DIR}/opencv/build")
+  find_package(OpenCV REQUIRED NO_MODULE)
 endif()
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 link_directories( ${OpenCV_LIB_DIR} )
@@ -84,6 +84,8 @@ add_executable(tests tests/test.cpp
         diffusion/separablefilter.cpp
         topology/topology.cu
         topology/topology.h
+        cuda/diffusion_gpu.cu
+        cuda/diffusion_gpu.h
         video/stream.cpp
         video/stream.h
         utils/utils.cpp
@@ -114,6 +116,9 @@ add_executable(yaalpp main.cpp
         diffusion/separablefilter.cpp
         simulation/Environment.cpp
         simulation/Environment.h
+        cuda/diffusion_gpu.cu
+        cuda/diffusion_gpu.h
+        utils/offset.hpp
         video/stream.cpp
         video/stream.h
         utils/utils.cpp

@@ -54,7 +54,7 @@ Stream::Stream(const char *filename, int fps, Size size, int workers_row, int wo
 
     this->comm_size = comm_size;
 
-    Size worker_size(size.width / workers_col, size.height / workers_row);
+    Size worker_size(size.width / workers_row, size.height / workers_col);
     this->worker_size = worker_size;
 
     if (rank == 0) { // This is the disk writer

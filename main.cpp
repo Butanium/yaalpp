@@ -14,11 +14,13 @@
 #include <omp.h>
 #include <cstdio>
 #include "simulation/Environment.h"
+#include <filesystem>
+#include <sstream>
 #include "Constants.h"
 #include <filesystem>
 #include <sstream>
 #include "topology/topology.h"
-
+#include "utils/utils.h"
 
 using json = nlohmann::json;
 using std::filesystem::path;
@@ -44,7 +46,6 @@ void print_grouped_help(const GroupsMap &groups) {
     }
 }
 
-
 void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) {
     GroupsMap help_groups{
             KeyOGPair{"General", {}},
@@ -55,11 +56,11 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     help_groups["Environment Hyperparameters"] = {
             program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
-                    std::vector<float>{0, 0, 0, 0.9, 0.8, 0.5}
+                    std::vector<float>{0, 0, 0, 0.99, 0.98, 0.97}
             ),
             program.add_argument("-d", "--diffusion-rate").help("Diffusion rate for channel").nargs(
                             argparse::nargs_pattern::at_least_one)
-                    .scan<'f', float>().default_value(std::vector<float>{0, 0, 0, 0.1, 0.9}),
+                    .scan<'f', float>().default_value(std::vector<float>{0, 0, 0, 10, 19}),
             program.add_argument("-m", "--max-values").help("Max values for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
                     std::vector<float>{1, 1, 1, 5, 5})
@@ -70,6 +71,8 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
             program.add_argument("--snapshot-interval").help("Interval between snapshots").default_value(100).scan<'i', int>(),
             program.add_argument("--no-snapshot").help("Turn off snapshot").flag(),
             program.add_argument("--name").help("Name of the simulation").default_value("simulation"),
+            program.add_argument("--cuda").help("Use CUDA for computation").flag(),
+            program.add_argument("--cpu").help("Use only CPU for computation").flag()
     };
     help_groups["Simulation parameters"] = {
 //TODO:            program.add_argument("-l", "--load").help(
@@ -165,6 +168,20 @@ int main(int argc, char *argv[]) {
     }
     auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values,
                            std::move(top_left_position), rows, columns);
+    if (cuda) {
+      env.diffusion_filter.use_cuda = true;
+      std::cout << "Using CUDA for diffusion" << std::endl;
+    } else if (cpu) {
+      env.diffusion_filter.use_cuda = false;
+      std::cout << "Using CPU for diffusion" << std::endl;
+    } else if (top.gpus > 0) {
+      env.diffusion_filter.use_cuda = true;
+      std::cout << "Using CUDA for diffusion" << std::endl;
+    } else {
+      env.diffusion_filter.use_cuda = false;
+      std::cout << "Using CPU for diffusion" << std::endl;
+    }
+
     path save = name;
     stringstream ss;
     ss << "env_" << mpi_rank;

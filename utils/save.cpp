@@ -54,8 +54,7 @@ json filter_to_json(const SeparableFilter &filter) {
     j["nb_channels"] = filter.nb_channels;
     j["border_condition"] = filter.border_condition;
     j["skip_color_channels"] = filter.skip_color_channels;
-    j["row_filters"] = tensor_to_json(filter.row_filters);
-    j["col_filters"] = tensor_to_json(filter.col_filters);
+    j["sigma"] = filter.sigma;
     return j;
 }
 
@@ -64,14 +63,13 @@ SeparableFilter json_to_filter(const json &johnson) {
     int nb_channels = johnson["nb_channels"];
     int border_condition = johnson["border_condition"];
     bool skip_color_channels = johnson["skip_color_channels"];
-    auto row_filters = json_to_tensor<2>(johnson["row_filters"]);
-    auto col_filters = json_to_tensor<2>(johnson["col_filters"]);
+    auto sigma_j = johnson["sigma"];
+    std::vector<float> sigma;
+    for (auto &el : sigma_j) {
+        sigma.push_back(el);
+    }
 
-    SeparableFilter filter = SeparableFilter(filter_size, nb_channels);
-    filter.row_filters = row_filters;
-    filter.col_filters = col_filters;
-    filter.border_condition = border_condition;
-    filter.skip_color_channels = skip_color_channels;
+    SeparableFilter filter = SeparableFilter(filter_size, nb_channels, border_condition, skip_color_channels, std::move(sigma));
 
     return filter;
 }

@@ -29,7 +29,7 @@ public:
     Offset offset_padding = {0, 0, 0, 0};
     Offset offset_sharing = {0, 0, 0, 0};
     const Vec2 top_left_position = Vec2::Zero();
-    const SeparableFilter diffusion_filter;
+    SeparableFilter diffusion_filter;
     int mpi_row = 0;
     int mpi_column = 0;
     MPI_Comm mpi_world = MPI_COMM_WORLD;

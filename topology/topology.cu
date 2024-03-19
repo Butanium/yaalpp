@@ -3,6 +3,7 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
+#include <omp.h>
 
 int get_nb_nodes(MPI_Comm comm) {
     int nb_nodes;
