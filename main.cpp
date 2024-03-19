@@ -133,12 +133,16 @@ int main(int argc, char *argv[]) {
 
     if (cuda) {
       env.diffusion_filter.use_cuda = true;
+      std::cout << "Using CUDA for diffusion" << std::endl;
     } else if (cpu) {
       env.diffusion_filter.use_cuda = false;
+      std::cout << "Using CPU for diffusion" << std::endl;
     } else if (top.gpus > 0) {
       env.diffusion_filter.use_cuda = true;
+      std::cout << "Using CUDA for diffusion" << std::endl;
     } else {
       env.diffusion_filter.use_cuda = false;
+      std::cout << "Using CPU for diffusion" << std::endl;
     }
 
     path save = name;
