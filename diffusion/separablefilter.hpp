@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "../utils/offset.hpp"
+#include "../utils/utils.h"
 #include <Eigen/Core>
 #include <unsupported/Eigen/CXX11/Tensor>
 

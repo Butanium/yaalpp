@@ -17,12 +17,15 @@
 #include <filesystem>
 #include <sstream>
 #include "Constants.h"
+#include <filesystem>
+#include <sstream>
 #include "topology/topology.h"
 #include "utils/utils.h"
 
 using json = nlohmann::json;
 using std::filesystem::path;
 using std::stringstream;
+
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -80,7 +83,7 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
                     6).scan<'i', int>(),
             program.add_argument("-n", "--num-yaals").help(
                     "Number of yaals at the start of the simulation").default_value(100).scan<'i', int>(),
-            program.add_argument("-n", "--num-plants").help(
+            program.add_argument("--num-plants").help(
                     "Number of plants at the start of the simulation").default_value(200).scan<'i', int>(),
             program.add_argument("-t", "--timesteps").help("Number of timesteps to simulate").default_value(
                     10000).scan<'i', int>(),
@@ -116,21 +119,62 @@ int main(int argc, char *argv[]) {
     int num_plants = program.get<int>("--num-plants");
     int timesteps = program.get<int>("--timesteps");
     bool allow_idle = program.get<bool>("--allow-idle-process");
-    int snapshot_interval = program.get<int>("--snapshot-interval");
     bool record_snapshot = !program.get<bool>("--no-snapshot");
+    int snapshot_interval = program.get<int>("--snapshot-interval");
     std::string name = program.get<std::string>("--name");
     bool cuda = program.get<bool>("--cuda");
     bool cpu = program.get<bool>("--cpu");
+    if (cuda && cpu) {
+        std::cerr << "Cannot use both CUDA and CPU" << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
 
     Topology top = get_topology(MPI_COMM_WORLD);
-
-#ifdef _OPENMP
-    std::cout << "OpenMP is enabled" << std::endl;
-#else
-    std::cout << "OpenMP is disabled" << std::endl;
-#endif
-    auto env = Environment(height, width, num_channels, decay_factors, diffusion_rate, max_values);
-
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    if (program.present<int>("--seed")) {
+        int seed = program.get<int>("--seed");
+        Yaal::generator.seed(seed + mpi_rank);
+        YaalGenome::generator.seed(seed + mpi_rank);
+    }
+    std::cout << "Hello from rank!" << mpi_rank << " of " << top.processes << " processes" << std::endl;
+    std::cout << "Running with " << top.cores_per_process << " cores per process and " << top.gpus << " gpus"
+              << " with a total of " << top.gpu_memory << "MB of GPU memory" << std::endl;
+    std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
+    // Divide the environment into subenvironments
+    auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
+    if (rows > columns && width > height) {
+        int temp = rows;
+        rows = columns;
+        columns = temp;
+    }
+    assert(allow_idle || (columns * rows == top.processes));
+    if (columns * rows <= mpi_rank) {
+        std::cout << "Rank " << mpi_rank << " is idle" << std::endl;
+        MPI_Finalize();
+        return 0;
+    }
+    int num_chunks = rows * columns;
+    int sub_height = height / rows;
+    int sub_width = width / columns;
+    int row = mpi_rank / columns;
+    int column = mpi_rank % columns;
+    Vec2 top_left_position((float) column * sub_width, (float) row * sub_height);
+    if (row == rows - 1) {
+        sub_height += height % sub_height;
+    }
+    if (column == columns - 1) {
+        sub_width += width % sub_width;
+    }
+    int sub_num_yaal = num_yaals / num_chunks;
+    int sub_num_plant = num_plants / num_chunks;
+    if (mpi_rank == 0) {
+        sub_num_yaal += num_yaals % num_chunks;
+        sub_num_plant += num_plants % num_chunks;
+    }
+    auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values,
+                           std::move(top_left_position), rows, columns);
     if (cuda) {
       env.diffusion_filter.use_cuda = true;
       std::cout << "Using CUDA for diffusion" << std::endl;
@@ -147,23 +191,42 @@ int main(int argc, char *argv[]) {
 
     path save = name;
     stringstream ss;
+    ss << "env_" << mpi_rank;
+    path save_env = save / ss.str();
+    path save_env_frames = save_env / "frames";
     path save_global_frames = save / "frames";
-    remove_directory_recursively(save);
-    ensure_directory_exists(save_global_frames);
-
-    env.create_yaals_and_plants(num_yaals, num_plants);
+    if (mpi_rank == 0) {
+        remove_directory_recursively(save);
+        ensure_directory_exists(save_global_frames);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    ensure_directory_exists(save_env_frames);
+    env.create_yaals_and_plants(sub_num_yaal, sub_num_plant);
     // Initialize the streams 
-    Stream global_stream((save / "simulation.mp4").c_str(),  5, cv::Size(width, height), 1, 1, false,
+    Stream global_stream((save / "global.mp4").c_str(),  5, cv::Size(width, height), rows, columns, false,
                              MPI_COMM_WORLD);
+    MPI_Comm solo_comm;
+    MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
+    Stream local_stream((save_env / "local.mp4").c_str(), 5, cv::Size(sub_width, sub_height), 1, 1, false, solo_comm);
+    // start time
+    double start = MPI_Wtime();
     for (int i = 0; i < timesteps; i++) {
         if (i % snapshot_interval == 0 && record_snapshot) {
             stringstream ss_frame;
             ss_frame << "frame_" << i << ".png";
             Tensor<float, 3> map = env.real_map(1);
             global_stream.append_frame(map, (save_global_frames / ss_frame.str()).c_str());
+            local_stream.append_frame(map, (save_env_frames / ss_frame.str()).c_str());
         }
         env.step();
     }
-
+    double end_time = MPI_Wtime();
+    double elapsed = end_time - start;
+    if (mpi_rank == 0) {
+        std::cout << "Elapsed time: " << elapsed << " seconds" << std::endl;
+        std::cout << "Timesteps per second: " << (double) timesteps / elapsed << std::endl;
+    }
+    
+    MPI_Comm_free(&solo_comm);
     MPI_Finalize();
 }
