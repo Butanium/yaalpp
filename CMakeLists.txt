@@ -1,12 +1,26 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.20)
 project(yaalpp LANGUAGES CXX CUDA)
 Include(FetchContent)
 # for performance:
 #add_compile_options(-O3 -march=native)
 add_compile_options(-fopenmp -std=c++20)
-add_compile_options(-Wall) # for all warnings
+# add_compile_options(-Wall) # for all warnings
 # for debug: add_compile_options(-O0)
-find_package(Boost REQUIRED COMPONENTS serialization mpi)
+find_package(Boost COMPONENTS serialization mpi)
+# if not found, download it
+if(NOT Boost_FOUND)
+        set(BOOST_INCLUDE_LIBRARIES serialization mpi)
+        set(BOOST_ENABLE_CMAKE ON)
+        FetchContent_Declare(
+                Boost
+                URL https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.7z
+                USES_TERMINAL_DOWNLOAD TRUE
+                DOWNLOAD_NO_EXTRACT FALSE
+              )
+        FetchContent_MakeAvailable(Boost)
+        set(Boost_LIBRARIES ${BOOST_INCLUDE_LIBRARIES})
+endif()
+# include the boost headers
 include_directories(${Boost_INCLUDE_DIRS})
 
 # Test library
@@ -39,10 +53,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 # OpenCV
-find_package(OpenCV REQUIRED)
+# Check if OpenCV is installed and if not use /users/eleves-b/2024/clement.dumas/build/OpenCVConfig.cmake
+find_package(OpenCV QUIET)
+if(NOT OpenCV_FOUND)
+   set(OpenCV_DIR "/users/eleves-b/2024/clement.dumas/build")
+   find_package(OpenCV REQUIRED NO_MODULE)
+endif()
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 link_directories( ${OpenCV_LIB_DIR} )
-
 # OpenMPI
 find_package(MPI REQUIRED)
 
@@ -76,7 +94,9 @@ add_executable(tests tests/test.cpp
         utils/save.cpp
 
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json Boost::serialization) 
+# Boost::mpi)
+#${Boost_LIBRARIES})
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -102,5 +122,8 @@ add_executable(yaalpp main.cpp
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
+        topology/topology.cu
+        topology/topology.h
 )
-target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json ${Boost_LIBRARIES})
+target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json Boost::serialization)
+# ${Boost_LIBRARIES})

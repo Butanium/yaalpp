@@ -223,11 +223,12 @@ bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
             diff *= overlap / diff.norm();
             yaals[i].position -= diff / 2.f;
         }
-        if (yaals[i].position.x() < size || yaals[i].position.y() < size ||
-            yaals[i].position.x() > (float) width - size || yaals[i].position.y() > (float) height - size) {
+        Vec2 relative_position = yaals[i].position - top_left_position;
+        if (relative_position.x() < size || relative_position.y() < size ||
+            relative_position.x() > (float) width - size || relative_position.y() > (float) height - size) {
             resolved = false;
-            yaals[i].position = yaals[i].position.cwiseMax(Vec2(size, size)).cwiseMin(
-                    Vec2((float) width - size, (float) height - size));
+            yaals[i].position = relative_position.cwiseMax(Vec2(size, size)).cwiseMin(
+                    Vec2((float) width - size, (float) height - size)) + top_left_position;
         }
     }
     return resolved;
@@ -296,14 +297,12 @@ void Environment::mpi_sync() {
 //        MPI_Irecv(mpi_receive_results[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
 //                  &recv_requests[i]);
     }
-    std::cout << "Process " << mpi_rank << " waiting for " << to_recv << " map chunks\n";
     // When a receive is done, add the data to the map
     // To do that we create an omp task per receive request
     for (int i = 0; i < 8; i++) {
         if (neighbourhood[i] == MPI_PROC_NULL) {
             continue;
         }
-        std::cout << "Process " << mpi_rank << " received map from " << neighbourhood[i] << "\n";
         auto offset = recv_offsets[i];
         auto dims = share_dims[i];
         auto shared_size = dims[0] * dims[1] * dims[2];
@@ -340,7 +339,6 @@ void Environment::mpi_sync() {
         }
     }
 */
-    std::cout << "Process " << mpi_rank << " finished waiting for map chunks" << std::endl;
     MPI_Barrier(mpi_world);
 
 }
@@ -356,6 +354,7 @@ void Environment::step() {
      * Exchange the Yaals that are now on the other side of the border as well as the shared map sections
      * add the yaals that crossed a border to the map
      * */
+    mpi_sync();
     auto tot_offset = offset_padding + offset_sharing;
 #pragma omp parallel for schedule(static) // TODO perf: check if dynamic is useful
     for (auto &yaal: yaals) {
@@ -418,5 +417,4 @@ void Environment::step() {
     map = map.cwiseMin(
             max_values.broadcast(array<int, 3>{height + tot_offset.vertical(),
                                                width + tot_offset.horizontal(), 1}));
-    mpi_sync();
 };

@@ -1,5 +1,6 @@
 #include "topology.h"
 #include <mpi.h>
+#include <omp.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
@@ -30,8 +31,15 @@ int get_nb_processes(MPI_Comm comm) {
 }
 
 int get_nb_cores_per_process() {
-    int nb_threads = atoi(getenv("OMP_NUM_THREADS"));
-    return nb_threads;
+    int nb_threads;
+#pragma omp parallel
+    {
+#pragma omp master
+        {
+            nb_threads = omp_get_num_threads();
+        }
+    }
+  return nb_threads;
 }
 
 int get_nb_gpus() {
@@ -58,6 +66,6 @@ Topology get_topology(MPI_Comm comm) {
        .processes = get_nb_processes(comm),
        .cores_per_process = get_nb_cores_per_process(),
        .gpus = get_nb_gpus(),
-       .gpus_memory = get_total_gpu_memory()
+       .gpu_memory = get_total_gpu_memory()
     };
 }

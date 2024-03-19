@@ -15,10 +15,15 @@
 #include <cstdio>
 #include "simulation/Environment.h"
 #include "Constants.h"
+#include <filesystem>
+#include <sstream>
+#include "topology/topology.h"
+
 
 using json = nlohmann::json;
+using std::filesystem::path;
+using std::stringstream;
 
-#include "topology/topology.h"
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -61,7 +66,9 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     };
     help_groups["General"] = {
             program.add_argument("-h", "--help").help("Print this help").nargs(0),
-            program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag()
+            program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag(),
+            program.add_argument("--snapshot-interval").help("Interval between snapshots").default_value(100).scan<'i', int>(),
+            program.add_argument("--name").help("Name of the simulation").default_value("simulation")
     };
     help_groups["Simulation parameters"] = {
 //TODO:            program.add_argument("-l", "--load").help(
@@ -108,6 +115,8 @@ int main(int argc, char *argv[]) {
     int num_plants = program.get<int>("--num-plants");
     int timesteps = program.get<int>("--timesteps");
     bool allow_idle = program.get<bool>("--allow-idle-process");
+    int snapshot_interval = program.get<int>("--snapshot-interval");
+    std::string name = program.get<std::string>("--name");
 
     Topology top = get_topology(MPI_COMM_WORLD);
     int mpi_rank;
@@ -119,7 +128,7 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Hello from rank!" << mpi_rank << " of " << top.processes << " processes" << std::endl;
     std::cout << "Running with " << top.cores_per_process << " cores per process and " << top.gpus << " gpus"
-              << " with a total of " << top.gpus_memory << "MB of GPU memory" << std::endl;
+              << " with a total of " << top.gpu_memory << "MB of GPU memory" << std::endl;
     std::cout << "Running with a total of " << top.nodes << " nodes" << std::endl;
     // Divide the environment into subenvironments
     auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
@@ -154,7 +163,35 @@ int main(int argc, char *argv[]) {
     }
     auto env = Environment(sub_height, sub_width, num_channels, decay_factors, diffusion_rate, max_values,
                            std::move(top_left_position), rows, columns);
-
+    path save = name;
+    stringstream ss;
+    ss << "env_" << mpi_rank;
+    path save_env = save / ss.str();
+    path save_env_frames = save_env / "frames";
+    path save_global_frames = save / "frames";
+    if (mpi_rank == 0) {
+        remove_directory_recursively(save);
+        ensure_directory_exists(save_global_frames);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    ensure_directory_exists(save_env_frames);
     env.create_yaals_and_plants(sub_num_yaal, sub_num_plant);
+    // Initialize the streams 
+    Stream global_stream((save / "global.mp4").c_str(),  5, cv::Size(width, height), rows, columns, false,
+                             MPI_COMM_WORLD);
+    MPI_Comm solo_comm;
+    MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
+    Stream local_stream((save_env / "local.mp4").c_str(), 5, cv::Size(sub_width, sub_height), 1, 1, false, solo_comm);
+    for (int i = 0; i < timesteps; i++) {
+        if (i % snapshot_interval == 0) {
+            stringstream ss_frame;
+            ss_frame << "frame_" << i << ".png";
+            Tensor<float, 3> map = env.real_map(1);
+            global_stream.append_frame(map, (save_global_frames / ss_frame.str()).c_str());
+            local_stream.append_frame(map, (save_env_frames / ss_frame.str()).c_str());
+        }
+        env.step();
+
+    }
     MPI_Finalize();
 }
