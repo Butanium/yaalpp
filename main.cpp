@@ -14,9 +14,13 @@
 #include <omp.h>
 #include <cstdio>
 #include "simulation/Environment.h"
+#include <filesystem>
+#include <sstream>
 #include "Constants.h"
+#include "topology/topology.h"
 using json = nlohmann::json;
-
+using std::filesystem::path;
+using std::stringstream;
 
 using Eigen::Tensor;
 using Eigen::array;
@@ -37,7 +41,6 @@ void print_grouped_help(const GroupsMap &groups) {
     }
 }
 
-
 void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) {
     GroupsMap help_groups{
             KeyOGPair{"General", {}},
@@ -46,10 +49,6 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     };
     program.add_description("Yet Another Artificial Life Program in cpp");
     help_groups["Environment Hyperparameters"] = {
-            program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>(),
-            program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>(),
-            program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(
-                    6).scan<'i', int>(),
             program.add_argument("-D", "--decay-factors").help("Decay factors for each channel").nargs(
                     argparse::nargs_pattern::at_least_one).scan<'f', float>().default_value(
                     std::vector<float>{0, 0, 0, 0.9, 0.8, 0.5}
@@ -63,12 +62,26 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
     };
     help_groups["General"] = {
             program.add_argument("-h", "--help").help("Print this help").nargs(0),
+            program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag(),
+            program.add_argument("--snapshot-interval").help("Interval between snapshots").default_value(100).scan<'i', int>(),
+            program.add_argument("--name").help("Name of the simulation").default_value("simulation"),
+            program.add_argument("--cuda").help("Use CUDA for computation").flag(),
+            program.add_argument("--cpu").help("Use only CPU for computation").flag()
     };
     help_groups["Simulation parameters"] = {
+//TODO:            program.add_argument("-l", "--load").help(
+//                    "Load a simulation from a file. Ignores other simulation parameters"),
+            program.add_argument("-H", "--height").help("Height of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-W", "--width").help("Width of the map").default_value(1000).scan<'i', int>(),
+            program.add_argument("-C", "--channels").help("Number of channels in the map").default_value(
+                    6).scan<'i', int>(),
             program.add_argument("-n", "--num-yaals").help(
                     "Number of yaals at the start of the simulation").default_value(100).scan<'i', int>(),
+            program.add_argument("-n", "--num-plants").help(
+                    "Number of plants at the start of the simulation").default_value(200).scan<'i', int>(),
             program.add_argument("-t", "--timesteps").help("Number of timesteps to simulate").default_value(
                     10000).scan<'i', int>(),
+            program.add_argument("-s", "--seed").help("The seed of the simulation").scan<'i', int>()
     };
     try {
         program.parse_args(argc, argv);
@@ -76,7 +89,7 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
         std::cout << program.usage() << std::endl;
         print_grouped_help(help_groups);
         std::cerr << err.what() << std::endl;
-        std::exit(1);
+        exit(1);
     }
     if (program.is_used("--help")) {
         std::cout << program.usage() << std::endl;
@@ -97,23 +110,52 @@ int main(int argc, char *argv[]) {
     auto diffusion_rate = program.get<std::vector<float>>("--diffusion-rate");
     auto max_values = program.get<std::vector<float>>("--max-values");
     int num_yaals = program.get<int>("--num-yaals");
+    int num_plants = program.get<int>("--num-plants");
     int timesteps = program.get<int>("--timesteps");
+    bool allow_idle = program.get<bool>("--allow-idle-process");
+    int snapshot_interval = program.get<int>("--snapshot-interval");
+    std::string name = program.get<std::string>("--name");
+    bool cuda = program.get<bool>("--cuda");
+    bool cpu = program.get<bool>("--cpu");
+
+    Topology top = get_topology(MPI_COMM_WORLD);
+
 #ifdef _OPENMP
     std::cout << "OpenMP is enabled" << std::endl;
 #else
     std::cout << "OpenMP is disabled" << std::endl;
 #endif
     auto env = Environment(height, width, num_channels, decay_factors, diffusion_rate, max_values);
-    env.yaals.reserve(num_yaals);
-    for (int i = 0; i < num_yaals; i++) {
-        Yaal yaal = Yaal::random(num_channels);
-        int ms = Constants::Yaal::MAX_SIZE;
-        yaal.set_random_position(Vec2(ms, ms), Vec2(width - ms, height - ms));
-        env.yaals.push_back(yaal);
+
+    if (cuda) {
+      env.diffusion_filter.use_cuda = true;
+    } else if (cpu) {
+      env.diffusion_filter.use_cuda = false;
+    } else if (top.gpus > 0) {
+      env.diffusion_filter.use_cuda = true;
+    } else {
+      env.diffusion_filter.use_cuda = false;
     }
-    for (int t = 0; t < timesteps; t++) {
-        std::cout << "#";
+
+    path save = name;
+    stringstream ss;
+    path save_global_frames = save / "frames";
+    remove_directory_recursively(save);
+    ensure_directory_exists(save_global_frames);
+
+    env.create_yaals_and_plants(num_yaals, num_plants);
+    // Initialize the streams 
+    Stream global_stream((save / "simulation.mp4").c_str(),  5, cv::Size(width, height), 1, 1, false,
+                             MPI_COMM_WORLD);
+    for (int i = 0; i < timesteps; i++) {
+        if (i % snapshot_interval == 0) {
+            stringstream ss_frame;
+            ss_frame << "frame_" << i << ".png";
+            Tensor<float, 3> map = env.real_map(1);
+            global_stream.append_frame(map, (save_global_frames / ss_frame.str()).c_str());
+        }
         env.step();
     }
+
     MPI_Finalize();
 }

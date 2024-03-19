@@ -101,6 +101,10 @@ add_executable(yaalpp main.cpp
         simulation/Environment.cpp
         simulation/Environment.h
         utils/offset.hpp
+        topology/topology.cu
+        topology/topology.h
+        cuda/diffusion_gpu.cu
+        cuda/diffusion_gpu.h
         video/stream.cpp
         video/stream.h
         utils/utils.cpp
