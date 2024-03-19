@@ -68,7 +68,8 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
             program.add_argument("-h", "--help").help("Print this help").nargs(0),
             program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag(),
             program.add_argument("--snapshot-interval").help("Interval between snapshots").default_value(100).scan<'i', int>(),
-            program.add_argument("--name").help("Name of the simulation").default_value("simulation")
+            program.add_argument("--no-snapshot").help("Turn off snapshot").flag(),
+            program.add_argument("--name").help("Name of the simulation").default_value("simulation"),
     };
     help_groups["Simulation parameters"] = {
 //TODO:            program.add_argument("-l", "--load").help(
@@ -79,7 +80,7 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
                     6).scan<'i', int>(),
             program.add_argument("-n", "--num-yaals").help(
                     "Number of yaals at the start of the simulation").default_value(100).scan<'i', int>(),
-            program.add_argument("-n", "--num-plants").help(
+            program.add_argument("--num-plants").help(
                     "Number of plants at the start of the simulation").default_value(200).scan<'i', int>(),
             program.add_argument("-t", "--timesteps").help("Number of timesteps to simulate").default_value(
                     10000).scan<'i', int>(),
@@ -115,6 +116,7 @@ int main(int argc, char *argv[]) {
     int num_plants = program.get<int>("--num-plants");
     int timesteps = program.get<int>("--timesteps");
     bool allow_idle = program.get<bool>("--allow-idle-process");
+    bool record_snapshot = !program.get<bool>("--no-snapshot");
     int snapshot_interval = program.get<int>("--snapshot-interval");
     std::string name = program.get<std::string>("--name");
 
@@ -182,8 +184,10 @@ int main(int argc, char *argv[]) {
     MPI_Comm solo_comm;
     MPI_Comm_split(MPI_COMM_WORLD, mpi_rank, 0, &solo_comm);
     Stream local_stream((save_env / "local.mp4").c_str(), 5, cv::Size(sub_width, sub_height), 1, 1, false, solo_comm);
+    // start time
+    double start = MPI_Wtime();
     for (int i = 0; i < timesteps; i++) {
-        if (i % snapshot_interval == 0) {
+        if (i % snapshot_interval == 0 && record_snapshot) {
             stringstream ss_frame;
             ss_frame << "frame_" << i << ".png";
             Tensor<float, 3> map = env.real_map(1);
@@ -191,7 +195,14 @@ int main(int argc, char *argv[]) {
             local_stream.append_frame(map, (save_env_frames / ss_frame.str()).c_str());
         }
         env.step();
-
     }
+    double end_time = MPI_Wtime();
+    double elapsed = end_time - start;
+    if (mpi_rank == 0) {
+        std::cout << "Elapsed time: " << elapsed << " seconds" << std::endl;
+        std::cout << "Timesteps per second: " << (double) timesteps / elapsed << std::endl;
+    }
+    
+    MPI_Comm_free(&solo_comm);
     MPI_Finalize();
 }
