@@ -122,6 +122,13 @@ int main(int argc, char *argv[]) {
     bool record_snapshot = !program.get<bool>("--no-snapshot");
     int snapshot_interval = program.get<int>("--snapshot-interval");
     std::string name = program.get<std::string>("--name");
+    bool cuda = program.get<bool>("--cuda");
+    bool cpu = program.get<bool>("--cpu");
+    if (cuda && cpu) {
+        std::cerr << "Cannot use both CUDA and CPU" << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
 
     Topology top = get_topology(MPI_COMM_WORLD);
     int mpi_rank;
