@@ -66,6 +66,7 @@ void parse_arguments(int argc, char *argv[], argparse::ArgumentParser &program) 
             program.add_argument("-h", "--help").help("Print this help").nargs(0),
             program.add_argument("--allow-idle-process").help("Experimental grid attribution").flag(),
             program.add_argument("--snapshot-interval").help("Interval between snapshots").default_value(100).scan<'i', int>(),
+            program.add_argument("--no-snapshot").help("Turn off snapshot").flag(),
             program.add_argument("--name").help("Name of the simulation").default_value("simulation"),
             program.add_argument("--cuda").help("Use CUDA for computation").flag(),
             program.add_argument("--cpu").help("Use only CPU for computation").flag()
@@ -116,6 +117,7 @@ int main(int argc, char *argv[]) {
     int timesteps = program.get<int>("--timesteps");
     bool allow_idle = program.get<bool>("--allow-idle-process");
     int snapshot_interval = program.get<int>("--snapshot-interval");
+    bool record_snapshot = !program.get<bool>("--no-snapshot");
     std::string name = program.get<std::string>("--name");
     bool cuda = program.get<bool>("--cuda");
     bool cpu = program.get<bool>("--cpu");
@@ -150,7 +152,7 @@ int main(int argc, char *argv[]) {
     Stream global_stream((save / "simulation.mp4").c_str(),  5, cv::Size(width, height), 1, 1, false,
                              MPI_COMM_WORLD);
     for (int i = 0; i < timesteps; i++) {
-        if (i % snapshot_interval == 0) {
+        if (i % snapshot_interval == 0 && record_snapshot) {
             stringstream ss_frame;
             ss_frame << "frame_" << i << ".png";
             Tensor<float, 3> map = env.real_map(1);
