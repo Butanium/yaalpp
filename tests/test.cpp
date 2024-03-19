@@ -382,7 +382,7 @@ TEST_CASE("ENVIRONMENT") {
         std::cout << "Updating yaals" << std::endl;
         remove_files_in_directory("test_output/frames");
         for (int i = 0; i < num_steps; i++) {
-            auto frame_name = std::format("test_output/frames/frame_{}.png", i);
+            path frame_name = std::format("test_output/frames/frame_{}.png", i);
             // View the env to send the 1, 2, 3 channels instead of 0-3
             auto fov = Constants::Yaal::MAX_FIELD_OF_VIEW;
             Tensor<float, 3> reshaped_map = env.map.slice(array<Index, 3>{fov, fov, 1},
@@ -524,10 +524,10 @@ TEST_CASE("MPI_ENV") {
             path global_total_frame = global_total_frame_path / std::format("frame_{}.png", i);
             path frame_path = save_frame_path / std::format("frame_{}.png", i);
             solo_stream.append_frame(env.map, frame_path.c_str());
-//            global_total_stream.append_frame(env.map, global_total_frame.c_str());
+            global_total_stream.append_frame(env.map, global_total_frame.c_str());
             Tensor<float, 3> map = env.real_map();
             std::cout << map.dimensions() << " of " << height << "," << width << std::endl;
-//            global_stream.append_frame(map, global_frame_path.c_str());
+            global_stream.append_frame(map, global_frame_path.c_str());
             if (mpi_rank == 0) {
                 std::cout << "================== Step " << i << " =============" << std::endl;
             }
@@ -538,14 +538,15 @@ TEST_CASE("MPI_ENV") {
 
     SECTION("Diffusion determinism") {
         int num_channels = 4;
-        std::vector<float> diffusion_factors = {0., 0., 0., 2};
+        std::vector<float> diffusion_factors = {0., 0., 0., 1000};
         std::vector<float> max_values = {1, 1, 1, 1};
-        std::vector<float> decay_factors = {0, 0, 0, 0.99};
+        std::vector<float> decay_factors = {0, 0, 0, 1};
         int height = 500;
         int width = 500;
         int num_steps = 10;
         Environment base_env(height, width, num_channels, decay_factors, diffusion_factors, max_values);
-        base_env.map.slice(array<Index, 3>{200, 200, 3}, array<Index, 3>{100, 100, 1}).setConstant(1);
+        base_env.mpi_world = solo_comm;
+        base_env.real_map().slice(array<Index, 3>{0, 0, 3}, array<Index, 3>{100, 100, 1}).setConstant(1);
         std::cout << "Set base_env" << std::endl;
         bool allow_idle = false;
         auto [rows, columns] = grid_decomposition(top.processes, allow_idle);
@@ -579,8 +580,8 @@ TEST_CASE("MPI_ENV") {
                             std::move(top_left_position), rows, columns);
         // Add 1 to the sub_env if needed. The concatenated map will be the same as the base_env
         std::cout << "created sub_env" << std::endl;
-        Vec2 start_pos = {200.f, 200.f};
-        Vec2 end_pos = {300.f, 300.f};
+        Vec2 start_pos = {0.f, 0.f};
+        Vec2 end_pos = {100.f, 100.f};
         if (!((end_pos.x() < sub_env.top_left_position.x() && end_pos.y() < sub_env.top_left_position.y()) ||
               (start_pos.x() > sub_env.top_left_position.x() + sub_env.width &&
                start_pos.y() > sub_env.top_left_position.y() + sub_env.height))) {
@@ -612,11 +613,19 @@ TEST_CASE("MPI_ENV") {
             ensure_directory_exists(base_frame_path);
             Stream base_stream((save_path / "base_env.mp4").c_str(), 10, cv::Size(width, height), 1, 1, false,
                                solo_comm);
+            Stream total_base_stream((save_path / "total_base_env.mp4").c_str(), 10, cv::Size(2*width, 2*height), 1, 1, false,
+                               solo_comm);
             for (int i = 0; i < num_steps; i++) {
                 path base_frame_path_png = base_frame_path / std::format("frame_{}.png", i);
+                path total_base_frame_path_png = base_frame_path / std::format("tframe_{}.png", i);
+
                 Tensor<float, 3> real_map = base_env.real_map().slice(array<Index, 3>{0, 0, 1},
                                                                       array<Index, 3>{height, width, 3});
                 base_stream.append_frame(real_map, base_frame_path_png.c_str());
+                Tensor<float, 3> total_map = base_env.map.slice(array<Index, 3>{0, 0, 1},
+                                                               array<Index, 3>{base_env.map.dimension(0),
+                                                                               base_env.map.dimension(1), 3});
+                total_base_stream.append_frame(total_map, total_base_frame_path_png.c_str());
                 base_env.step();
             }
         } else {
@@ -624,6 +633,7 @@ TEST_CASE("MPI_ENV") {
                 base_env.step();
             }
         }
+        std::cout << "Process " << mpi_rank << " waiting at barrier" << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
 
         path global_video_path = save_path / "global_env.mp4";
@@ -636,6 +646,7 @@ TEST_CASE("MPI_ENV") {
                                    MPI_COMM_WORLD);
         sub_env.mpi_sync();
         for (int i = 0; i < num_steps; i++) {
+            std::cout << "Step " << i << " for process " << mpi_rank << std::endl;
             path global_frame_path = frame_path / std::format("frame_{}.png", i);
             Tensor<float, 3> real_map = sub_env.real_map().slice(array<Index, 3>{0, 0, 1},
                                                                  array<Index, 3>{sub_height, sub_width, 3});

@@ -32,6 +32,7 @@ public:
     const SeparableFilter diffusion_filter;
     int mpi_row = 0;
     int mpi_column = 0;
+    MPI_Comm mpi_world = MPI_COMM_WORLD;
     Neighbourhood neighbourhood = Neighbourhood::none();
     std::vector<Yaal> yaals = {};
     std::vector<Plant> plants = {};
@@ -45,7 +46,7 @@ public:
 
     Environment(int height, int width, int channels, std::vector<float> &decay_factors_v,
                 std::vector<float> &_diffusion_factor, std::vector<float> &max_values_v, Vec2 &&_top_left_position,
-                int num_mpi_rows, int num_mpi_columns);
+                int num_mpi_rows, int num_mpi_columns, MPI_Comm mpi_world = MPI_COMM_WORLD);
 
     Environment(int height, int width, int channels,
                 Eigen::TensorMap<Tensor<float, 3>> decay_factors,

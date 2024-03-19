@@ -35,17 +35,18 @@ Environment::Environment(int height, int width,
                          std::vector<float> &_diffusion_factor,
                          std::vector<float> &max_values_v,
                          Vec2 &&_top_left_position,
-                         int num_mpi_rows, int num_mpi_columns) :
+                         int num_mpi_rows, int num_mpi_columns, MPI_Comm mpi_world) :
         height(height), width(width), num_channels(channels),
         top_left_position(std::move(_top_left_position)),
         diffusion_filter(SeparableFilter(FILTER_SIZE, channels, true, std::move(_diffusion_factor))),
         decay_factors(Eigen::TensorMap<Tensor<float, 3>>(decay_factors_v.data(), array<Index, 3>{1, 1, channels})),
-        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})) {
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank
+        max_values(Eigen::TensorMap<Tensor<float, 3>>(max_values_v.data(), array<Index, 3>{1, 1, channels})),
+        mpi_world(mpi_world) {
+    MPI_Comm_rank(mpi_world, &mpi_rank
     );
     mpi_row = mpi_rank / num_mpi_columns;
     mpi_column = mpi_rank % num_mpi_columns;
-//@formatter:off
+//@formatter:off todo :remove
     const std::array<int, 8> sharing_sizes = {{
         (int) SHARED_SIZE * width * num_channels,// top
         (int) SHARED_SIZE * width * num_channels,// bottom
@@ -98,7 +99,7 @@ Environment::Environment(int height, int width, int channels, Eigen::TensorMap<T
                          Eigen::TensorMap<Tensor<float, 3>>
                          max_values, const SeparableFilter &diffusion_filter, int offset_padding_top,
                          int offset_padding_bottom, int offset_padding_left, int offset_padding_right,
-                         Vec2 top_left_position, std::vector<Yaal> yaals_, std::vector<Plant> plants_):
+                         Vec2 top_left_position, std::vector<Yaal> yaals_, std::vector<Plant> plants_) :
         height(height), width(width), num_channels(channels),
         offset_padding(
                 {.top = offset_padding_top, .bottom = offset_padding_bottom, .left = offset_padding_left, .right = offset_padding_right}),
@@ -252,7 +253,7 @@ void Environment::mpi_sync() {
         {{tot_offset.top + height - SHARED_SIZE, tot_offset.left + width - SHARED_SIZE, 0}} // bottom_right
     }};
 
-    const std::array<std::array<Index, 3>, 8> recv_offsets = {{
+    const array<array<Index, 3>, 8> recv_offsets = {{
         {{0, tot_offset.left, 0}},                                // top
         {{height + tot_offset.top, tot_offset.left, 0}},          // bottom
         {{tot_offset.top, 0, 0}},                                 // left
@@ -263,7 +264,7 @@ void Environment::mpi_sync() {
         {{tot_offset.top + height, tot_offset.left + width, 0}}   // bottom_right
     }};
 
-    const std::array<std::array<Index, 3>, 8> share_dims = {{
+    const array<array<Index, 3>, 8> share_dims = {{
         {{SHARED_SIZE, width, num_channels}},                  // top
         {{SHARED_SIZE, width, num_channels}},                  // bottom
         {{height, SHARED_SIZE, num_channels}},                 // left
@@ -273,7 +274,8 @@ void Environment::mpi_sync() {
         {{SHARED_SIZE, SHARED_SIZE, num_channels}},            // bottom_left
         {{SHARED_SIZE, SHARED_SIZE, num_channels}}             // bottom_right
     }};
-    float** mpi_receive_results = new float*[8];
+    array<Tensor<float, 3>, 8> mpi_receive_results;
+    array<Tensor<float, 3>, 8> mpi_sent_tensors;
     // @formatter:on
     int to_recv = 0;
     for (int i = 0; i < 8; i++) {
@@ -283,25 +285,34 @@ void Environment::mpi_sync() {
             continue;
         }
         to_recv++;
-        Tensor<float, 3> neighbor_map = map.slice(send_offsets[i], share_dims[i]);
-        // TODO Remove debug
-        Eigen::TensorMap<Tensor<float, 3>> t_map(neighbor_map.data(), share_dims[i]);
-        Tensor<float, 3> t_map2 = t_map;
-        assert(is_close(t_map2, neighbor_map));
-
+        mpi_sent_tensors[i] = map.slice(send_offsets[i], share_dims[i]);
         auto shared_size = share_dims[i][0] * share_dims[i][1] * share_dims[i][2];
-        mpi_receive_results[i] = new float[shared_size];
-        assert((int) neighbor_map.size() == shared_size);
+        mpi_receive_results[i] = Tensor<float, 3>(share_dims[i]);
+        assert((int) mpi_sent_tensors[i].size() == shared_size);
         MPI_Request send_request;
-        MPI_Isend(neighbor_map.data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, MPI_COMM_WORLD,
+        MPI_Isend(mpi_sent_tensors[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
                   &send_request);
-        MPI_Irecv(mpi_receive_results[i], (int) shared_size, MPI_FLOAT, rank, MAP_TAG, MPI_COMM_WORLD,
-                  &recv_requests[i]);
-
+//        MPI_Send(neighbor_map.data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world);
+//        MPI_Irecv(mpi_receive_results[i].data(), (int) shared_size, MPI_FLOAT, rank, MAP_TAG, mpi_world,
+//                  &recv_requests[i]);
     }
     std::cout << "Process " << mpi_rank << " waiting for " << to_recv << " map chunks\n";
     // When a receive is done, add the data to the map
     // To do that we create an omp task per receive request
+    for (int i = 0; i < 8; i++) {
+        if (neighbourhood[i] == MPI_PROC_NULL) {
+            continue;
+        }
+        std::cout << "Process " << mpi_rank << " received map from " << neighbourhood[i] << "\n";
+        auto offset = recv_offsets[i];
+        auto dims = share_dims[i];
+        auto shared_size = dims[0] * dims[1] * dims[2];
+        MPI_Recv(mpi_receive_results[i].data(), (int) shared_size, MPI_FLOAT, neighbourhood[i], MAP_TAG, mpi_world,
+                 MPI_STATUS_IGNORE);
+        auto received_tensor = mpi_receive_results[i];
+        map.slice(offset, dims) = received_tensor;
+    }
+/*
 #pragma omp parallel shared(recv_requests, mpi_receive_results, recv_offsets, share_dims, to_recv, std::cout, map, mpi_rank, neighbourhood, std::cerr)
     {
 #pragma omp single nowait
@@ -318,11 +329,8 @@ void Environment::mpi_sync() {
                     {
                         auto offset = recv_offsets[completed_idx];
                         auto dims = share_dims[completed_idx];
-                        auto data = mpi_receive_results[completed_idx];
-                        auto neighbor_map = Eigen::TensorMap<Tensor<float, 3>>
-                                (data, dims);
-                        map.slice(offset, dims) = neighbor_map;
-
+                        auto received_tensor = mpi_receive_results[completed_idx];
+                        map.slice(offset, dims) = received_tensor;
                     }
                 } else {
                     std::cout << "Process " << mpi_rank << " received MPI_UNDEFINED" << std::endl;
@@ -331,8 +339,9 @@ void Environment::mpi_sync() {
             }
         }
     }
+*/
     std::cout << "Process " << mpi_rank << " finished waiting for map chunks" << std::endl;
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(mpi_world);
 
 }
 
