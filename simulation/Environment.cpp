@@ -46,7 +46,7 @@ Environment::Environment(int height, int width,
     mpi_row = mpi_rank / num_mpi_columns;
     mpi_column = mpi_rank % num_mpi_columns;
     for (int i = 0; i < 8; i++) {
-        neighbourhood.add(i, mpi_rank, mpi_row, mpi_column, num_mpi_rows, num_mpi_columns)
+        neighbourhood.add(i, mpi_rank, mpi_row, mpi_column, num_mpi_rows, num_mpi_columns);
     }
     for (int i = 0; i < 4; i++) {
         if (neighbourhood[i] != MPI_PROC_NULL) {
