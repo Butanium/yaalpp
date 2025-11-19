@@ -128,6 +128,7 @@ struct SerializedYaalGenome {
     std::vector<float> signature;
     float max_energy;
     float energy_cost;
+    float pheromone_intensity;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
@@ -138,6 +139,7 @@ struct SerializedYaalGenome {
         ar & signature;
         ar & max_energy;
         ar & energy_cost;
+        ar & pheromone_intensity;
     }
 };
 
@@ -152,8 +154,15 @@ public:
     std::vector<float> signature;
     float max_energy;  // Maximum energy capacity
     float energy_cost; // Energy consumed per unit distance moved
+    float pheromone_intensity; // How much pheromone to deposit
 
     Tensor<float, 3> generate_body();
+
+    /**
+     * Generate pheromone deposit based on signature and intensity
+     * Pheromones use channels 3+ (after RGB)
+     */
+    Tensor<float, 3> generate_pheromone() const;
 
     static YaalGenome random(int num_channels);
 
@@ -170,6 +179,7 @@ public:
         serialized.signature = signature;
         serialized.max_energy = max_energy;
         serialized.energy_cost = energy_cost;
+        serialized.pheromone_intensity = pheromone_intensity;
         return serialized;
     }
 
@@ -182,6 +192,7 @@ public:
         yaalGenome.signature = serialized.signature;
         yaalGenome.max_energy = serialized.max_energy;
         yaalGenome.energy_cost = serialized.energy_cost;
+        yaalGenome.pheromone_intensity = serialized.pheromone_intensity;
         return yaalGenome;
     }
 };

@@ -180,6 +180,22 @@ void Environment::add_to_map(const Yaal &yaal) {
     };
 }
 
+void Environment::add_pheromone(const Yaal &yaal) {
+    auto pheromone = yaal.genome.generate_pheromone();
+    int pheromone_size = (int)pheromone.dimension(0);
+
+    // Center the pheromone on the Yaal's position
+    Vec2 pheromone_top_left = yaal.position - Vec2((float)pheromone_size / 2.0f, (float)pheromone_size / 2.0f);
+    auto [i, j] = pos_to_index(pheromone_top_left);
+
+    array<Index, 3> offsets = {i, j, 0};
+    auto slice = map.slice(offsets, pheromone.dimensions());
+#pragma omp critical
+    {
+        slice += pheromone;
+    }
+}
+
 bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
     bool resolved = true;
 #pragma omp parallel for schedule(static) shared(resolved)
@@ -286,6 +302,13 @@ std::pair<int, int> Environment::handle_life_cycle() {
                 offspring_genome.energy_cost = std::clamp(offspring_genome.energy_cost,
                                                           Constants::Yaal::MIN_ENERGY_COST,
                                                           Constants::Yaal::MAX_ENERGY_COST);
+            }
+
+            if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                offspring_genome.pheromone_intensity *= (1.0f + mutation_delta(Yaal::generator));
+                offspring_genome.pheromone_intensity = std::clamp(offspring_genome.pheromone_intensity,
+                                                                  Constants::Yaal::MIN_PHEROMONE_INTENSITY,
+                                                                  Constants::Yaal::MAX_PHEROMONE_INTENSITY);
             }
 
             // Mutate brain weights
@@ -533,6 +556,8 @@ void Environment::step() {
             std::cout << "Skipping Yaal: " << yaal.position << " is out of sub env bounds" << std::endl;
             continue;
         }
+        // Deposit pheromones before adding body (so body is on top visually)
+        add_pheromone(yaal);
         add_to_map(yaal);
     }
 #pragma omp parallel for schedule(static)

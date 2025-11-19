@@ -93,6 +93,9 @@ public:
     /// Add the yaal body to the map
     void add_to_map(const Yaal &yaal);
 
+    /// Add the yaal's pheromone to the map
+    void add_pheromone(const Yaal &yaal);
+
     /// Add a plant to the environment
     void add_plant(Plant &&plant);
 

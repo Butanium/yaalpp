@@ -19,6 +19,9 @@ namespace Constants {
         static constexpr float PLANT_ENERGY_GAIN = 20.0f;  // Energy gained from eating a plant
         static constexpr float MUTATION_RATE = 0.1f;  // 10% chance of mutation per parameter
         static constexpr float MUTATION_STRENGTH = 0.1f;  // Mutations are +/- 10% of current value
+        static constexpr float PHEROMONE_STRENGTH = 0.3f;  // Strength of pheromone deposit per timestep
+        static constexpr float MIN_PHEROMONE_INTENSITY = 0.0f;
+        static constexpr float MAX_PHEROMONE_INTENSITY = 1.0f;
     }
     namespace Environment {
         static constexpr int FILTER_SIZE = 7;

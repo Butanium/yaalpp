@@ -80,6 +80,47 @@ Tensor<float, 3> YaalGenome::generate_body() {
     return body;
 }
 
+Tensor<float, 3> YaalGenome::generate_pheromone() const {
+    // Pheromone is a small circular deposit based on signature
+    // We'll make it half the size of the body for subtler trails
+    int pheromone_size = size / 2;
+    if (pheromone_size < 1) pheromone_size = 1;
+
+    Tensor<float, 3> pheromone(pheromone_size, pheromone_size, (long) signature.size());
+
+    // Fill with signature values scaled by pheromone intensity
+    // Skip first 3 channels (RGB) for pheromones
+    for (int c = 0; c < (int) signature.size(); c++) {
+        if (c < 3) {
+            pheromone.chip(c, 2).setZero();  // No pheromone in visual channels
+        } else {
+            pheromone.chip(c, 2).setConstant(signature[c] * pheromone_intensity);
+        }
+    }
+
+    // Apply circle mask with soft falloff
+    float center = (float) pheromone_size / 2.f - 0.5f;
+    for (int i = 0; i < pheromone_size; i++) {
+        for (int j = 0; j < pheromone_size; j++) {
+            float dx = (float) i - center;
+            float dy = (float) j - center;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            float radius = (float) pheromone_size / 2.f;
+
+            auto slice = pheromone.chip(i, 0).chip(j, 0);
+            if (dist > radius) {
+                slice.setZero();
+            } else {
+                // Gaussian-like falloff
+                float intensity = std::exp(-2.0f * (dist / radius) * (dist / radius));
+                slice = slice * intensity;
+            }
+        }
+    }
+
+    return pheromone;
+}
+
 template<typename Scalar>
 struct GenomeEigenRandomGenerator {
     std::mt19937 &generator;
@@ -114,6 +155,8 @@ YaalGenome YaalGenome::random(int num_channels) {
     auto signature_rng = std::uniform_real_distribution<float>(0, 1);
     auto energy_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_ENERGY, Constants::Yaal::MAX_ENERGY);
     auto energy_cost_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_ENERGY_COST, Constants::Yaal::MAX_ENERGY_COST);
+    auto pheromone_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_PHEROMONE_INTENSITY,
+                                                               Constants::Yaal::MAX_PHEROMONE_INTENSITY);
     int size = size_rng(generator);
     std::vector<float> signature = std::vector<float>(num_channels);
     for (int i = 0; i < num_channels; i++) {
@@ -128,7 +171,8 @@ YaalGenome YaalGenome::random(int num_channels) {
             .size = size,
             .signature = signature,
             .max_energy = energy_rng(generator),
-            .energy_cost = energy_cost_rng(generator)
+            .energy_cost = energy_cost_rng(generator),
+            .pheromone_intensity = pheromone_rng(generator)
     };
 }
 
