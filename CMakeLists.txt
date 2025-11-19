@@ -100,6 +100,7 @@ set(COMMON_SOURCES
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
+        utils/statistics.hpp
 )
 
 if(HAVE_CUDA)

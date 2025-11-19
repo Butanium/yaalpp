@@ -5,6 +5,7 @@
 #include "../entity/plant.hpp"
 #include "../diffusion/separablefilter.hpp"
 #include "../topology/topology.h"
+#include "../utils/statistics.hpp"
 
 using Vec2i = Eigen::Vector2i;
 using Eigen::Index;
@@ -38,6 +39,9 @@ public:
     std::vector<Plant> plants = {};
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;
+    Statistics stats;
+    int current_timestep = 0;
+    int stats_interval = 10;  // Record stats every N timesteps
 
     Environment(int height, int width, int channels,
                 std::vector<float> &decay_factors_v,
@@ -129,4 +133,17 @@ public:
     void create_yaals_and_plants(int num_yaal, int num_plant);
 
     void mpi_sync();
+
+    /// Write statistics to file and print summary
+    void finalize_statistics() {
+        if (mpi_rank == 0) {
+            stats.write_to_csv();
+            stats.print_summary();
+        }
+    }
+
+    /// Set statistics recording interval
+    void set_stats_interval(int interval) {
+        stats_interval = interval;
+    }
 };

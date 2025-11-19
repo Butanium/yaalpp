@@ -598,9 +598,16 @@ void Environment::step() {
     // Respawn plants to maintain ecosystem
     int plants_spawned = respawn_plants();
 
+    // Record statistics periodically
+    current_timestep++;
+    if (mpi_rank == 0 && current_timestep % stats_interval == 0) {
+        stats.record_snapshot(current_timestep, yaals, (int)plants.size(),
+                            births, deaths, attacks, plants_eaten, plants_spawned);
+    }
+
     // Print evolution statistics (only from rank 0 to avoid spam)
     if (mpi_rank == 0 && (births > 0 || deaths > 0 || plants_eaten > 0 || plants_spawned > 0 || attacks > 0)) {
-        std::cout << "Evolution: " << yaals.size() << " yaals, "
+        std::cout << "Timestep " << current_timestep << " | Population: " << yaals.size() << " yaals, "
                   << plants.size() << " plants | "
                   << "Births: " << births << ", Deaths: " << deaths
                   << ", Plants eaten: " << plants_eaten
