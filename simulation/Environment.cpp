@@ -263,8 +263,8 @@ std::pair<int, int> Environment::handle_life_cycle() {
     std::vector<Yaal> surviving_yaals;
 
     for (auto &yaal : yaals) {
-        // Check if Yaal dies (energy depleted)
-        if (yaal.energy <= 0.0f) {
+        // Check if Yaal dies (energy depleted or too old)
+        if (yaal.energy <= 0.0f || yaal.age >= Constants::Yaal::MAX_AGE) {
             deaths++;
             continue;  // Don't add to surviving_yaals
         }

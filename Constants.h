@@ -22,6 +22,10 @@ namespace Constants {
         static constexpr float PHEROMONE_STRENGTH = 0.3f;  // Strength of pheromone deposit per timestep
         static constexpr float MIN_PHEROMONE_INTENSITY = 0.0f;
         static constexpr float MAX_PHEROMONE_INTENSITY = 1.0f;
+        static constexpr int PRIME_AGE = 500;  // Age at which Yaals are at peak performance
+        static constexpr int MAX_AGE = 2000;  // Maximum age before death from old age
+        static constexpr float AGE_SPEED_PENALTY = 0.0005f;  // Speed reduction per timestep after prime
+        static constexpr float AGE_ENERGY_PENALTY = 0.0003f;  // Energy efficiency loss per timestep after prime
     }
     namespace Environment {
         static constexpr int FILTER_SIZE = 7;

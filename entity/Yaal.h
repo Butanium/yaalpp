@@ -259,18 +259,53 @@ public:
 
 
     /**
+     * Calculate speed multiplier based on age
+     * Young and old Yaals are slower than prime-age ones
+     */
+    float get_age_speed_multiplier() const {
+        if (age <= Constants::Yaal::PRIME_AGE) {
+            // Young Yaals gradually reach peak speed
+            return 0.5f + 0.5f * ((float)age / (float)Constants::Yaal::PRIME_AGE);
+        } else {
+            // Old Yaals gradually slow down
+            int age_past_prime = age - Constants::Yaal::PRIME_AGE;
+            float penalty = (float)age_past_prime * Constants::Yaal::AGE_SPEED_PENALTY;
+            return std::max(0.2f, 1.0f - penalty);  // Never go below 20% speed
+        }
+    }
+
+    /**
+     * Calculate energy cost multiplier based on age
+     * Old Yaals are less energy-efficient
+     */
+    float get_age_energy_multiplier() const {
+        if (age <= Constants::Yaal::PRIME_AGE) {
+            return 1.0f;  // Young Yaals have normal efficiency
+        } else {
+            // Old Yaals become less efficient
+            int age_past_prime = age - Constants::Yaal::PRIME_AGE;
+            float penalty = (float)age_past_prime * Constants::Yaal::AGE_ENERGY_PENALTY;
+            return 1.0f + penalty;  // Energy cost increases with age
+        }
+    }
+
+    /**
      * Update the Yaal's state position, direction, speed, etc.
      * @param input_view What the Yaal sees
      */
     void update(auto &input_view) {
         auto decision = genome.brain.evaluate(input_view, genome.field_of_view * 2 + genome.size,
                                               genome.field_of_view * 2 + genome.size);
-        Vec2 movement = decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
+
+        // Apply age-based speed penalty
+        float age_speed_mult = get_age_speed_multiplier();
+        Vec2 movement = decision.direction * (genome.max_speed * decision.speed_factor * age_speed_mult) * Constants::DELTA_T;
         position += movement;
 
-        // Consume energy based on distance traveled and energy cost
+        // Consume energy based on distance traveled, energy cost, and age efficiency
         float distance = movement.norm();
-        energy -= distance * genome.energy_cost;
+        float age_energy_mult = get_age_energy_multiplier();
+        energy -= distance * genome.energy_cost * age_energy_mult;
         energy = std::max(0.0f, energy);  // Energy can't go below zero
 
         // Increment age
