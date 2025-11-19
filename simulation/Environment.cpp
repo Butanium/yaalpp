@@ -221,6 +221,64 @@ bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
     return resolved;
 }
 
+int Environment::handle_attacks() {
+    int total_attacks = 0;
+
+    // Build quadtree for efficient proximity queries
+    if (yaals.size() < 2) return 0;
+
+    QuadTree quadtree(Rect(top_left_position, Vec2(width, height)), (float) MAX_SIZE);
+    quadtree.initialize(yaals);
+
+    // Check each Yaal for nearby targets
+    for (size_t i = 0; i < yaals.size(); i++) {
+        auto &attacker = yaals[i];
+
+        // Decide if this Yaal wants to attack
+        std::uniform_real_distribution<float> attack_roll(0, 1);
+        float attack_chance = Constants::Yaal::ATTACK_PROBABILITY * attacker.genome.aggressiveness;
+        if (attack_roll(Yaal::generator) > attack_chance) {
+            continue;  // This Yaal doesn't attack this timestep
+        }
+
+        // Find nearest Yaal
+        Vec2 nearest_pos;
+        if (!quadtree.get_closest(attacker.position, (float)attacker.genome.size, nearest_pos)) {
+            continue;  // No nearby Yaal
+        }
+
+        // Find the defender by position
+        for (size_t j = 0; j < yaals.size(); j++) {
+            if (i == j) continue;
+
+            auto &defender = yaals[j];
+            if ((defender.position - nearest_pos).norm() < 0.1f) {
+                // Found the defender! Calculate attack success
+                float size_advantage = (float)(attacker.genome.size - defender.genome.size);
+                float energy_advantage = attacker.energy - defender.energy;
+
+                float success_chance = 0.5f;  // Base 50% success
+                success_chance += size_advantage * Constants::Yaal::SIZE_ATTACK_BONUS;
+                success_chance += energy_advantage * Constants::Yaal::ENERGY_ATTACK_BONUS;
+                success_chance = std::clamp(success_chance, 0.1f, 0.9f);  // 10%-90% range
+
+                if (attack_roll(Yaal::generator) < success_chance) {
+                    // Attack succeeds! Steal energy
+                    float energy_stolen = std::min(Constants::Yaal::ATTACK_BASE_ENERGY_STEAL, defender.energy);
+                    defender.energy -= energy_stolen;
+                    attacker.energy += energy_stolen;
+                    attacker.energy = std::min(attacker.energy, attacker.genome.max_energy);
+                    total_attacks++;
+                }
+
+                break;  // Only attack one Yaal per timestep
+            }
+        }
+    }
+
+    return total_attacks;
+}
+
 int Environment::consume_plants() {
     int plants_eaten = 0;
     std::vector<bool> plant_eaten(plants.size(), false);
@@ -309,6 +367,11 @@ std::pair<int, int> Environment::handle_life_cycle() {
                 offspring_genome.pheromone_intensity = std::clamp(offspring_genome.pheromone_intensity,
                                                                   Constants::Yaal::MIN_PHEROMONE_INTENSITY,
                                                                   Constants::Yaal::MAX_PHEROMONE_INTENSITY);
+            }
+
+            if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                offspring_genome.aggressiveness *= (1.0f + mutation_delta(Yaal::generator));
+                offspring_genome.aggressiveness = std::clamp(offspring_genome.aggressiveness, 0.0f, 2.0f);
             }
 
             // Mutate brain weights
@@ -523,6 +586,9 @@ void Environment::step() {
         }
     }
 
+    // Handle attacks (energy stealing between Yaals)
+    int attacks = handle_attacks();
+
     // Consume plants for energy
     int plants_eaten = consume_plants();
 
@@ -533,12 +599,13 @@ void Environment::step() {
     int plants_spawned = respawn_plants();
 
     // Print evolution statistics (only from rank 0 to avoid spam)
-    if (mpi_rank == 0 && (births > 0 || deaths > 0 || plants_eaten > 0 || plants_spawned > 0)) {
+    if (mpi_rank == 0 && (births > 0 || deaths > 0 || plants_eaten > 0 || plants_spawned > 0 || attacks > 0)) {
         std::cout << "Evolution: " << yaals.size() << " yaals, "
                   << plants.size() << " plants | "
                   << "Births: " << births << ", Deaths: " << deaths
                   << ", Plants eaten: " << plants_eaten
-                  << ", Plants spawned: " << plants_spawned << std::endl;
+                  << ", Plants spawned: " << plants_spawned
+                  << ", Attacks: " << attacks << std::endl;
     }
 
     // TODO?: put this in diffusion filter to parallelize it

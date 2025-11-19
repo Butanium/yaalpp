@@ -26,6 +26,10 @@ namespace Constants {
         static constexpr int MAX_AGE = 2000;  // Maximum age before death from old age
         static constexpr float AGE_SPEED_PENALTY = 0.0005f;  // Speed reduction per timestep after prime
         static constexpr float AGE_ENERGY_PENALTY = 0.0003f;  // Energy efficiency loss per timestep after prime
+        static constexpr float ATTACK_BASE_ENERGY_STEAL = 10.0f;  // Base energy stolen in successful attack
+        static constexpr float ATTACK_PROBABILITY = 0.3f;  // Base probability of attacking when colliding
+        static constexpr float SIZE_ATTACK_BONUS = 0.05f;  // Attack success bonus per size unit advantage
+        static constexpr float ENERGY_ATTACK_BONUS = 0.001f;  // Attack success bonus per energy unit advantage
     }
     namespace Environment {
         static constexpr int FILTER_SIZE = 7;

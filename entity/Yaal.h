@@ -129,6 +129,7 @@ struct SerializedYaalGenome {
     float max_energy;
     float energy_cost;
     float pheromone_intensity;
+    float aggressiveness;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
@@ -140,6 +141,7 @@ struct SerializedYaalGenome {
         ar & max_energy;
         ar & energy_cost;
         ar & pheromone_intensity;
+        ar & aggressiveness;
     }
 };
 
@@ -155,6 +157,7 @@ public:
     float max_energy;  // Maximum energy capacity
     float energy_cost; // Energy consumed per unit distance moved
     float pheromone_intensity; // How much pheromone to deposit
+    float aggressiveness; // Probability multiplier for attacking (0.0-2.0)
 
     Tensor<float, 3> generate_body();
 
@@ -180,6 +183,7 @@ public:
         serialized.max_energy = max_energy;
         serialized.energy_cost = energy_cost;
         serialized.pheromone_intensity = pheromone_intensity;
+        serialized.aggressiveness = aggressiveness;
         return serialized;
     }
 
@@ -193,6 +197,7 @@ public:
         yaalGenome.max_energy = serialized.max_energy;
         yaalGenome.energy_cost = serialized.energy_cost;
         yaalGenome.pheromone_intensity = serialized.pheromone_intensity;
+        yaalGenome.aggressiveness = serialized.aggressiveness;
         return yaalGenome;
     }
 };

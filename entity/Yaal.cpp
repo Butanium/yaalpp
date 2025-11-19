@@ -157,6 +157,7 @@ YaalGenome YaalGenome::random(int num_channels) {
     auto energy_cost_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_ENERGY_COST, Constants::Yaal::MAX_ENERGY_COST);
     auto pheromone_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_PHEROMONE_INTENSITY,
                                                                Constants::Yaal::MAX_PHEROMONE_INTENSITY);
+    auto aggressiveness_rng = std::uniform_real_distribution<float>(0.0f, 2.0f);
     int size = size_rng(generator);
     std::vector<float> signature = std::vector<float>(num_channels);
     for (int i = 0; i < num_channels; i++) {
@@ -172,7 +173,8 @@ YaalGenome YaalGenome::random(int num_channels) {
             .signature = signature,
             .max_energy = energy_rng(generator),
             .energy_cost = energy_cost_rng(generator),
-            .pheromone_intensity = pheromone_rng(generator)
+            .pheromone_intensity = pheromone_rng(generator),
+            .aggressiveness = aggressiveness_rng(generator)
     };
 }
 
