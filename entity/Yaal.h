@@ -126,6 +126,8 @@ struct SerializedYaalGenome {
     int field_of_view;
     int size;
     std::vector<float> signature;
+    float max_energy;
+    float energy_cost;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
@@ -134,6 +136,8 @@ struct SerializedYaalGenome {
         ar & field_of_view;
         ar & size;
         ar & signature;
+        ar & max_energy;
+        ar & energy_cost;
     }
 };
 
@@ -146,6 +150,8 @@ public:
     int field_of_view;
     int size;
     std::vector<float> signature;
+    float max_energy;  // Maximum energy capacity
+    float energy_cost; // Energy consumed per unit distance moved
 
     Tensor<float, 3> generate_body();
 
@@ -162,6 +168,8 @@ public:
         serialized.field_of_view = field_of_view;
         serialized.size = size;
         serialized.signature = signature;
+        serialized.max_energy = max_energy;
+        serialized.energy_cost = energy_cost;
         return serialized;
     }
 
@@ -172,6 +180,8 @@ public:
         yaalGenome.field_of_view = serialized.field_of_view;
         yaalGenome.size = serialized.size;
         yaalGenome.signature = serialized.signature;
+        yaalGenome.max_energy = serialized.max_energy;
+        yaalGenome.energy_cost = serialized.energy_cost;
         return yaalGenome;
     }
 };
@@ -192,12 +202,16 @@ struct SerializedYaal {
     float position_x;
     float position_y;
     SerializedYaalGenome genome;
+    float energy;
+    int age;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
         ar & position_x;
         ar & position_y;
         ar & genome;
+        ar & energy;
+        ar & age;
     }
 };
 
@@ -213,6 +227,8 @@ public:
     Vec2 direction;
     YaalGenome genome;
     Tensor<float, 3> body;
+    float energy;
+    int age;
 
     /**
      * Construct a Yaal
@@ -238,7 +254,16 @@ public:
     void update(auto &input_view) {
         auto decision = genome.brain.evaluate(input_view, genome.field_of_view * 2 + genome.size,
                                               genome.field_of_view * 2 + genome.size);
-        position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
+        Vec2 movement = decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
+        position += movement;
+
+        // Consume energy based on distance traveled and energy cost
+        float distance = movement.norm();
+        energy -= distance * genome.energy_cost;
+        energy = std::max(0.0f, energy);  // Energy can't go below zero
+
+        // Increment age
+        age++;
     }
 
     void set_random_position(const Vec2 &min, const Vec2 &max);
@@ -259,6 +284,8 @@ public:
         serialized.position_x = position.x();
         serialized.position_y = position.y();
         serialized.genome = genome.to_serialized();
+        serialized.energy = energy;
+        serialized.age = age;
         return serialized;
     }
 
@@ -267,6 +294,8 @@ public:
         Yaal yaal(Vec2(serialized.position_x, serialized.position_y),
                   std::move(genome),
                   std::move(genome.generate_body()));
+        yaal.energy = serialized.energy;
+        yaal.age = serialized.age;
         return yaal;
     }
 };

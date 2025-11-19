@@ -205,6 +205,152 @@ bool Environment::resolve_collisions(const std::vector<Vec2> &closests) {
     return resolved;
 }
 
+int Environment::consume_plants() {
+    int plants_eaten = 0;
+    std::vector<bool> plant_eaten(plants.size(), false);
+
+    // Check each Yaal against each plant
+    for (auto &yaal : yaals) {
+        for (size_t p = 0; p < plants.size(); p++) {
+            if (plant_eaten[p]) continue;
+
+            float distance = (yaal.position - plants[p].position).norm();
+            float yaal_radius = (float)yaal.genome.size / 2.0f;
+            float plant_radius = (float)plants[p].body.dimension(0) / 2.0f;
+
+            // If Yaal overlaps with plant, consume it
+            if (distance < (yaal_radius + plant_radius)) {
+                yaal.energy += Constants::Yaal::PLANT_ENERGY_GAIN;
+                yaal.energy = std::min(yaal.energy, yaal.genome.max_energy);
+                plant_eaten[p] = true;
+                plants_eaten++;
+            }
+        }
+    }
+
+    // Remove eaten plants
+    std::vector<Plant> surviving_plants;
+    for (size_t i = 0; i < plants.size(); i++) {
+        if (!plant_eaten[i]) {
+            surviving_plants.push_back(std::move(plants[i]));
+        }
+    }
+    plants = std::move(surviving_plants);
+
+    return plants_eaten;
+}
+
+std::pair<int, int> Environment::handle_life_cycle() {
+    int births = 0;
+    int deaths = 0;
+    std::vector<Yaal> new_yaals;
+    std::vector<Yaal> surviving_yaals;
+
+    for (auto &yaal : yaals) {
+        // Check if Yaal dies (energy depleted)
+        if (yaal.energy <= 0.0f) {
+            deaths++;
+            continue;  // Don't add to surviving_yaals
+        }
+
+        // Check if Yaal reproduces
+        if (yaal.energy > yaal.genome.max_energy * Constants::Yaal::REPRODUCTION_THRESHOLD) {
+            // Split energy between parent and offspring
+            float offspring_energy = yaal.energy / 2.0f;
+            yaal.energy = offspring_energy;
+
+            // Create offspring with mutated genome
+            YaalGenome offspring_genome = yaal.genome;
+
+            // Mutate the offspring genome
+            std::uniform_real_distribution<float> mutation_chance(0, 1);
+            std::uniform_real_distribution<float> mutation_delta(-Constants::Yaal::MUTATION_STRENGTH,
+                                                                  Constants::Yaal::MUTATION_STRENGTH);
+
+            if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                offspring_genome.max_speed *= (1.0f + mutation_delta(Yaal::generator));
+                offspring_genome.max_speed = std::clamp(offspring_genome.max_speed,
+                                                        Constants::Yaal::MIN_SPEED,
+                                                        Constants::Yaal::MAX_SPEED);
+            }
+
+            if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                offspring_genome.max_energy *= (1.0f + mutation_delta(Yaal::generator));
+                offspring_genome.max_energy = std::clamp(offspring_genome.max_energy,
+                                                         Constants::Yaal::MIN_ENERGY,
+                                                         Constants::Yaal::MAX_ENERGY);
+            }
+
+            if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                offspring_genome.energy_cost *= (1.0f + mutation_delta(Yaal::generator));
+                offspring_genome.energy_cost = std::clamp(offspring_genome.energy_cost,
+                                                          Constants::Yaal::MIN_ENERGY_COST,
+                                                          Constants::Yaal::MAX_ENERGY_COST);
+            }
+
+            // Mutate brain weights
+            for (int i = 0; i < offspring_genome.brain.direction_weights.size(); i++) {
+                if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                    offspring_genome.brain.direction_weights(i) += mutation_delta(Yaal::generator);
+                }
+            }
+
+            // Mutate signature (color/smell)
+            for (size_t i = 0; i < offspring_genome.signature.size(); i++) {
+                if (mutation_chance(Yaal::generator) < Constants::Yaal::MUTATION_RATE) {
+                    offspring_genome.signature[i] += mutation_delta(Yaal::generator);
+                    offspring_genome.signature[i] = std::clamp(offspring_genome.signature[i], 0.0f, 1.0f);
+                }
+            }
+
+            // Create offspring near parent with random offset
+            std::uniform_real_distribution<float> offset_dist(-10.0f, 10.0f);
+            Vec2 offspring_pos = yaal.position + Vec2(offset_dist(Yaal::generator),
+                                                      offset_dist(Yaal::generator));
+
+            auto offspring_body = offspring_genome.generate_body();
+            Yaal offspring(offspring_pos, std::move(offspring_genome), std::move(offspring_body));
+            offspring.energy = offspring_energy;
+            offspring.age = 0;
+
+            new_yaals.push_back(std::move(offspring));
+            births++;
+        }
+
+        surviving_yaals.push_back(std::move(yaal));
+    }
+
+    // Update yaals list
+    yaals = std::move(surviving_yaals);
+    for (auto &new_yaal : new_yaals) {
+        yaals.push_back(std::move(new_yaal));
+    }
+
+    return {births, deaths};
+}
+
+int Environment::respawn_plants() {
+    int spawned = 0;
+
+    // Only spawn if below max capacity
+    if ((int)plants.size() >= Constants::Environment::MAX_PLANTS_PER_AREA) {
+        return 0;
+    }
+
+    // Probabilistic spawning
+    std::uniform_real_distribution<float> chance(0, 1);
+    if (chance(Plant::generator) < Constants::Environment::PLANT_RESPAWN_RATE) {
+        Plant new_plant(num_channels);
+        new_plant.set_random_position(Vec2((float) MAX_SIZE / 2., (float) MAX_SIZE / 2.),
+                                      Vec2(width - MAX_SIZE / 2., height - MAX_SIZE / 2.));
+        new_plant.position += top_left_position;
+        add_plant(std::move(new_plant));
+        spawned++;
+    }
+
+    return spawned;
+}
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "UnusedValue"
 
@@ -318,6 +464,8 @@ void Environment::step() {
     /* Evaluate the Yaals
      * Exchange the Yaals with the other processes to be able to resolve collisions
      * Resolve collisions
+     * Consume plants
+     * Handle death and reproduction
      * Decay and diffuse the map
      * Add the Yaals to the map
      * Exchange the Yaals that are now on the other side of the border as well as the shared map sections
@@ -350,6 +498,24 @@ void Environment::step() {
         if (resolve_collisions(closests)) {
             break;
         }
+    }
+
+    // Consume plants for energy
+    int plants_eaten = consume_plants();
+
+    // Handle death and reproduction
+    auto [births, deaths] = handle_life_cycle();
+
+    // Respawn plants to maintain ecosystem
+    int plants_spawned = respawn_plants();
+
+    // Print evolution statistics (only from rank 0 to avoid spam)
+    if (mpi_rank == 0 && (births > 0 || deaths > 0 || plants_eaten > 0 || plants_spawned > 0)) {
+        std::cout << "Evolution: " << yaals.size() << " yaals, "
+                  << plants.size() << " plants | "
+                  << "Births: " << births << ", Deaths: " << deaths
+                  << ", Plants eaten: " << plants_eaten
+                  << ", Plants spawned: " << plants_spawned << std::endl;
     }
 
     // TODO?: put this in diffusion filter to parallelize it

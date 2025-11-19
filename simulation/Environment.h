@@ -108,6 +108,15 @@ public:
     /// Resolve collisions between yaals and closests, and clamp the positions inside the environment. If a Yaal is in the shared area of another MPI process, it is added to a buffer that will be sent to the other process.
     bool resolve_collisions(const std::vector<Vec2> &closests);
 
+    /// Handle plant consumption by Yaals - returns number of plants eaten
+    int consume_plants();
+
+    /// Handle Yaal death and reproduction - returns number of births and deaths
+    std::pair<int, int> handle_life_cycle();
+
+    /// Respawn plants probabilistically - returns number of plants spawned
+    int respawn_plants();
+
     /// Perform a step in the environment
     void step();
 
