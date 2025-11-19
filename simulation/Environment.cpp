@@ -398,6 +398,8 @@ std::pair<int, int> Environment::handle_life_cycle() {
             Yaal offspring(offspring_pos, std::move(offspring_genome), std::move(offspring_body));
             offspring.energy = offspring_energy;
             offspring.age = 0;
+            offspring.parent_id = yaal.id;  // Track parent
+            offspring.generation = yaal.generation + 1;  // Increment generation
 
             new_yaals.push_back(std::move(offspring));
             births++;

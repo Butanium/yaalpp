@@ -41,17 +41,24 @@ Yaal::Yaal(Vec2 &&position, YaalGenome &&genome, Tensor<float, 3> &&body) :
         genome(std::move(genome)),
         body(std::move(body)),
         energy(genome.max_energy),
-        age(0) {}
+        age(0),
+        id(next_id++),
+        parent_id(0),
+        generation(0) {}
 
 Yaal::Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body) :
         position(position),
         genome(genome),
         body(body),
         energy(genome.max_energy),
-        age(0) {}
+        age(0),
+        id(next_id++),
+        parent_id(0),
+        generation(0) {}
 
 std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
 std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+unsigned long Yaal::next_id = 1;  // Start IDs at 1 (0 reserved for "no parent")
 
 /**
  * Generate a body with a given signature

@@ -220,6 +220,9 @@ struct SerializedYaal {
     SerializedYaalGenome genome;
     float energy;
     int age;
+    unsigned long id;
+    unsigned long parent_id;
+    int generation;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
@@ -228,6 +231,9 @@ struct SerializedYaal {
         ar & genome;
         ar & energy;
         ar & age;
+        ar & id;
+        ar & parent_id;
+        ar & generation;
     }
 };
 
@@ -245,6 +251,13 @@ public:
     Tensor<float, 3> body;
     float energy;
     int age;
+
+    // Lineage tracking
+    unsigned long id;  // Unique identifier
+    unsigned long parent_id;  // ID of parent (0 if initial population)
+    int generation;  // Generation number (0 for initial population)
+
+    static unsigned long next_id;  // Global ID counter
 
     /**
      * Construct a Yaal
@@ -337,6 +350,9 @@ public:
         serialized.genome = genome.to_serialized();
         serialized.energy = energy;
         serialized.age = age;
+        serialized.id = id;
+        serialized.parent_id = parent_id;
+        serialized.generation = generation;
         return serialized;
     }
 
@@ -347,6 +363,9 @@ public:
                   std::move(genome.generate_body()));
         yaal.energy = serialized.energy;
         yaal.age = serialized.age;
+        yaal.id = serialized.id;
+        yaal.parent_id = serialized.parent_id;
+        yaal.generation = serialized.generation;
         return yaal;
     }
 };

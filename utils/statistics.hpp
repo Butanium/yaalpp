@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include <cmath>
+#include <set>
 #include "../entity/Yaal.h"
 
 /**
@@ -32,6 +33,12 @@ public:
         int min_age;
         int max_age;
 
+        // Lineage statistics
+        float avg_generation;
+        int min_generation;
+        int max_generation;
+        int num_lineages;  // Number of unique parent IDs
+
         // Trait statistics
         float avg_speed;
         float avg_energy_cost;
@@ -47,6 +54,7 @@ public:
             attacks(0), plants_eaten(0), plants_spawned(0), plant_count(0),
             avg_energy(0), min_energy(0), max_energy(0), total_energy(0),
             avg_age(0), min_age(0), max_age(0),
+            avg_generation(0), min_generation(0), max_generation(0), num_lineages(0),
             avg_speed(0), avg_energy_cost(0), avg_aggressiveness(0), avg_pheromone_intensity(0),
             trait_variance_speed(0), trait_variance_energy(0), trait_variance_aggressiveness(0) {}
     };
@@ -97,6 +105,12 @@ public:
         int min_age = yaals[0].age;
         int max_age = yaals[0].age;
 
+        // Calculate lineage statistics
+        int total_generation = 0;
+        int min_generation = yaals[0].generation;
+        int max_generation = yaals[0].generation;
+        std::set<unsigned long> unique_parents;  // Track unique parent IDs
+
         // Collect traits for variance calculation
         std::vector<float> speeds;
         std::vector<float> energy_costs;
@@ -118,6 +132,14 @@ public:
             min_age = std::min(min_age, yaal.age);
             max_age = std::max(max_age, yaal.age);
 
+            // Lineage
+            total_generation += yaal.generation;
+            min_generation = std::min(min_generation, yaal.generation);
+            max_generation = std::max(max_generation, yaal.generation);
+            if (yaal.parent_id > 0) {
+                unique_parents.insert(yaal.parent_id);
+            }
+
             // Traits
             speeds.push_back(yaal.genome.max_speed);
             energy_costs.push_back(yaal.genome.energy_cost);
@@ -138,6 +160,11 @@ public:
         snapshot.avg_age = (float)total_age / (float)pop;
         snapshot.min_age = min_age;
         snapshot.max_age = max_age;
+
+        snapshot.avg_generation = (float)total_generation / (float)pop;
+        snapshot.min_generation = min_generation;
+        snapshot.max_generation = max_generation;
+        snapshot.num_lineages = (int)unique_parents.size();
 
         snapshot.avg_speed = total_speed / (float)pop;
         snapshot.avg_energy_cost = total_energy_cost / (float)pop;
@@ -164,6 +191,7 @@ public:
         file << "timestep,population,births,deaths,attacks,plants_eaten,plants_spawned,plant_count,"
              << "avg_energy,min_energy,max_energy,total_energy,"
              << "avg_age,min_age,max_age,"
+             << "avg_generation,min_generation,max_generation,num_lineages,"
              << "avg_speed,avg_energy_cost,avg_aggressiveness,avg_pheromone_intensity,"
              << "var_speed,var_energy_cost,var_aggressiveness\n";
 
@@ -184,6 +212,10 @@ public:
                  << snapshot.avg_age << ","
                  << snapshot.min_age << ","
                  << snapshot.max_age << ","
+                 << snapshot.avg_generation << ","
+                 << snapshot.min_generation << ","
+                 << snapshot.max_generation << ","
+                 << snapshot.num_lineages << ","
                  << snapshot.avg_speed << ","
                  << snapshot.avg_energy_cost << ","
                  << snapshot.avg_aggressiveness << ","
@@ -212,6 +244,8 @@ public:
                   << ", max=" << latest.max_energy << std::endl;
         std::cout << "Age: avg=" << latest.avg_age << ", min=" << latest.min_age
                   << ", max=" << latest.max_age << std::endl;
+        std::cout << "Lineage: avg_gen=" << latest.avg_generation << ", max_gen=" << latest.max_generation
+                  << ", active_lineages=" << latest.num_lineages << std::endl;
         std::cout << "Traits: speed=" << latest.avg_speed << " (var=" << latest.trait_variance_speed << ")"
                   << ", aggressiveness=" << latest.avg_aggressiveness << " (var=" << latest.trait_variance_aggressiveness << ")" << std::endl;
         std::cout << "========================================\n" << std::endl;
