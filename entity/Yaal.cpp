@@ -39,14 +39,26 @@ void Yaal::bound_position(const Vec2 &min, const Vec2 &max) {
 Yaal::Yaal(Vec2 &&position, YaalGenome &&genome, Tensor<float, 3> &&body) :
         position(std::move(position)),
         genome(std::move(genome)),
-        body(std::move(body)) {}
+        body(std::move(body)),
+        energy(genome.max_energy),
+        age(0),
+        id(next_id++),
+        parent_id(0),
+        generation(0) {}
 
 Yaal::Yaal(const Vec2 &position, const YaalGenome &genome, const Tensor<float, 3> &body) :
         position(position),
-        genome(genome), body(body) {}
+        genome(genome),
+        body(body),
+        energy(genome.max_energy),
+        age(0),
+        id(next_id++),
+        parent_id(0),
+        generation(0) {}
 
 std::mt19937 YaalGenome::generator = std::mt19937(std::random_device{}());
 std::mt19937 Yaal::generator = std::mt19937(std::random_device{}());
+unsigned long Yaal::next_id = 1;  // Start IDs at 1 (0 reserved for "no parent")
 
 /**
  * Generate a body with a given signature
@@ -73,6 +85,47 @@ Tensor<float, 3> YaalGenome::generate_body() {
         }
     }
     return body;
+}
+
+Tensor<float, 3> YaalGenome::generate_pheromone() const {
+    // Pheromone is a small circular deposit based on signature
+    // We'll make it half the size of the body for subtler trails
+    int pheromone_size = size / 2;
+    if (pheromone_size < 1) pheromone_size = 1;
+
+    Tensor<float, 3> pheromone(pheromone_size, pheromone_size, (long) signature.size());
+
+    // Fill with signature values scaled by pheromone intensity
+    // Skip first 3 channels (RGB) for pheromones
+    for (int c = 0; c < (int) signature.size(); c++) {
+        if (c < 3) {
+            pheromone.chip(c, 2).setZero();  // No pheromone in visual channels
+        } else {
+            pheromone.chip(c, 2).setConstant(signature[c] * pheromone_intensity);
+        }
+    }
+
+    // Apply circle mask with soft falloff
+    float center = (float) pheromone_size / 2.f - 0.5f;
+    for (int i = 0; i < pheromone_size; i++) {
+        for (int j = 0; j < pheromone_size; j++) {
+            float dx = (float) i - center;
+            float dy = (float) j - center;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            float radius = (float) pheromone_size / 2.f;
+
+            auto slice = pheromone.chip(i, 0).chip(j, 0);
+            if (dist > radius) {
+                slice.setZero();
+            } else {
+                // Gaussian-like falloff
+                float intensity = std::exp(-2.0f * (dist / radius) * (dist / radius));
+                slice = slice * intensity;
+            }
+        }
+    }
+
+    return pheromone;
 }
 
 template<typename Scalar>
@@ -107,6 +160,11 @@ YaalGenome YaalGenome::random(int num_channels) {
                                                       Constants::Yaal::MAX_FIELD_OF_VIEW);
     auto size_rng = std::uniform_int_distribution<int>(Constants::Yaal::MIN_SIZE, Constants::Yaal::MAX_SIZE);
     auto signature_rng = std::uniform_real_distribution<float>(0, 1);
+    auto energy_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_ENERGY, Constants::Yaal::MAX_ENERGY);
+    auto energy_cost_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_ENERGY_COST, Constants::Yaal::MAX_ENERGY_COST);
+    auto pheromone_rng = std::uniform_real_distribution<float>(Constants::Yaal::MIN_PHEROMONE_INTENSITY,
+                                                               Constants::Yaal::MAX_PHEROMONE_INTENSITY);
+    auto aggressiveness_rng = std::uniform_real_distribution<float>(0.0f, 2.0f);
     int size = size_rng(generator);
     std::vector<float> signature = std::vector<float>(num_channels);
     for (int i = 0; i < num_channels; i++) {
@@ -119,7 +177,11 @@ YaalGenome YaalGenome::random(int num_channels) {
             .max_speed = speed_rng(generator),
             .field_of_view = fov_rng(generator),
             .size = size,
-            .signature = signature
+            .signature = signature,
+            .max_energy = energy_rng(generator),
+            .energy_cost = energy_cost_rng(generator),
+            .pheromone_intensity = pheromone_rng(generator),
+            .aggressiveness = aggressiveness_rng(generator)
     };
 }
 

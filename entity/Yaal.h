@@ -126,6 +126,10 @@ struct SerializedYaalGenome {
     int field_of_view;
     int size;
     std::vector<float> signature;
+    float max_energy;
+    float energy_cost;
+    float pheromone_intensity;
+    float aggressiveness;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
@@ -134,6 +138,10 @@ struct SerializedYaalGenome {
         ar & field_of_view;
         ar & size;
         ar & signature;
+        ar & max_energy;
+        ar & energy_cost;
+        ar & pheromone_intensity;
+        ar & aggressiveness;
     }
 };
 
@@ -146,8 +154,18 @@ public:
     int field_of_view;
     int size;
     std::vector<float> signature;
+    float max_energy;  // Maximum energy capacity
+    float energy_cost; // Energy consumed per unit distance moved
+    float pheromone_intensity; // How much pheromone to deposit
+    float aggressiveness; // Probability multiplier for attacking (0.0-2.0)
 
     Tensor<float, 3> generate_body();
+
+    /**
+     * Generate pheromone deposit based on signature and intensity
+     * Pheromones use channels 3+ (after RGB)
+     */
+    Tensor<float, 3> generate_pheromone() const;
 
     static YaalGenome random(int num_channels);
 
@@ -162,6 +180,10 @@ public:
         serialized.field_of_view = field_of_view;
         serialized.size = size;
         serialized.signature = signature;
+        serialized.max_energy = max_energy;
+        serialized.energy_cost = energy_cost;
+        serialized.pheromone_intensity = pheromone_intensity;
+        serialized.aggressiveness = aggressiveness;
         return serialized;
     }
 
@@ -172,6 +194,10 @@ public:
         yaalGenome.field_of_view = serialized.field_of_view;
         yaalGenome.size = serialized.size;
         yaalGenome.signature = serialized.signature;
+        yaalGenome.max_energy = serialized.max_energy;
+        yaalGenome.energy_cost = serialized.energy_cost;
+        yaalGenome.pheromone_intensity = serialized.pheromone_intensity;
+        yaalGenome.aggressiveness = serialized.aggressiveness;
         return yaalGenome;
     }
 };
@@ -192,12 +218,22 @@ struct SerializedYaal {
     float position_x;
     float position_y;
     SerializedYaalGenome genome;
+    float energy;
+    int age;
+    unsigned long id;
+    unsigned long parent_id;
+    int generation;
 
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version) {
         ar & position_x;
         ar & position_y;
         ar & genome;
+        ar & energy;
+        ar & age;
+        ar & id;
+        ar & parent_id;
+        ar & generation;
     }
 };
 
@@ -213,6 +249,15 @@ public:
     Vec2 direction;
     YaalGenome genome;
     Tensor<float, 3> body;
+    float energy;
+    int age;
+
+    // Lineage tracking
+    unsigned long id;  // Unique identifier
+    unsigned long parent_id;  // ID of parent (0 if initial population)
+    int generation;  // Generation number (0 for initial population)
+
+    static unsigned long next_id;  // Global ID counter
 
     /**
      * Construct a Yaal
@@ -232,13 +277,57 @@ public:
 
 
     /**
+     * Calculate speed multiplier based on age
+     * Young and old Yaals are slower than prime-age ones
+     */
+    float get_age_speed_multiplier() const {
+        if (age <= Constants::Yaal::PRIME_AGE) {
+            // Young Yaals gradually reach peak speed
+            return 0.5f + 0.5f * ((float)age / (float)Constants::Yaal::PRIME_AGE);
+        } else {
+            // Old Yaals gradually slow down
+            int age_past_prime = age - Constants::Yaal::PRIME_AGE;
+            float penalty = (float)age_past_prime * Constants::Yaal::AGE_SPEED_PENALTY;
+            return std::max(0.2f, 1.0f - penalty);  // Never go below 20% speed
+        }
+    }
+
+    /**
+     * Calculate energy cost multiplier based on age
+     * Old Yaals are less energy-efficient
+     */
+    float get_age_energy_multiplier() const {
+        if (age <= Constants::Yaal::PRIME_AGE) {
+            return 1.0f;  // Young Yaals have normal efficiency
+        } else {
+            // Old Yaals become less efficient
+            int age_past_prime = age - Constants::Yaal::PRIME_AGE;
+            float penalty = (float)age_past_prime * Constants::Yaal::AGE_ENERGY_PENALTY;
+            return 1.0f + penalty;  // Energy cost increases with age
+        }
+    }
+
+    /**
      * Update the Yaal's state position, direction, speed, etc.
      * @param input_view What the Yaal sees
      */
     void update(auto &input_view) {
         auto decision = genome.brain.evaluate(input_view, genome.field_of_view * 2 + genome.size,
                                               genome.field_of_view * 2 + genome.size);
-        position += decision.direction * (genome.max_speed * decision.speed_factor) * Constants::DELTA_T;
+
+        // Apply age-based speed penalty
+        float age_speed_mult = get_age_speed_multiplier();
+        Vec2 movement = decision.direction * (genome.max_speed * decision.speed_factor * age_speed_mult) * Constants::DELTA_T;
+        position += movement;
+
+        // Consume energy based on distance traveled, energy cost, and age efficiency
+        float distance = movement.norm();
+        float age_energy_mult = get_age_energy_multiplier();
+        energy -= distance * genome.energy_cost * age_energy_mult;
+        energy = std::max(0.0f, energy);  // Energy can't go below zero
+
+        // Increment age
+        age++;
     }
 
     void set_random_position(const Vec2 &min, const Vec2 &max);
@@ -259,6 +348,11 @@ public:
         serialized.position_x = position.x();
         serialized.position_y = position.y();
         serialized.genome = genome.to_serialized();
+        serialized.energy = energy;
+        serialized.age = age;
+        serialized.id = id;
+        serialized.parent_id = parent_id;
+        serialized.generation = generation;
         return serialized;
     }
 
@@ -267,6 +361,11 @@ public:
         Yaal yaal(Vec2(serialized.position_x, serialized.position_y),
                   std::move(genome),
                   std::move(genome.generate_body()));
+        yaal.energy = serialized.energy;
+        yaal.age = serialized.age;
+        yaal.id = serialized.id;
+        yaal.parent_id = serialized.parent_id;
+        yaal.generation = serialized.generation;
         return yaal;
     }
 };

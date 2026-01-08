@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
-project(yaalpp LANGUAGES CXX CUDA)
+# Try to enable CUDA, but make it optional
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    set(HAVE_CUDA TRUE)
+    message(STATUS "CUDA support enabled")
+else()
+    set(HAVE_CUDA FALSE)
+    message(STATUS "CUDA not found - building CPU-only version")
+endif()
+project(yaalpp LANGUAGES CXX)
 Include(FetchContent)
 # for performance:
 add_compile_options(-O3 -march=native)
@@ -67,8 +78,7 @@ find_package(MPI REQUIRED)
 # OpenMP
 find_package(OpenMP REQUIRED)
 
-add_executable(tests tests/test.cpp
-        utils/circle.cpp
+set(COMMON_SOURCES
         utils/circle.cpp
         utils/circle.hpp
         physics/quadtree.cpp
@@ -82,10 +92,6 @@ add_executable(tests tests/test.cpp
         simulation/Environment.h
         diffusion/separablefilter.hpp
         diffusion/separablefilter.cpp
-        topology/topology.cu
-        topology/topology.h
-        cuda/diffusion_gpu.cu
-        cuda/diffusion_gpu.h
         video/stream.cpp
         video/stream.h
         utils/utils.cpp
@@ -94,40 +100,25 @@ add_executable(tests tests/test.cpp
         entity/plant.hpp
         utils/save.hpp
         utils/save.cpp
-
+        utils/statistics.hpp
 )
+
+if(HAVE_CUDA)
+    list(APPEND COMMON_SOURCES
+        topology/topology.cu
+        topology/topology.h
+        cuda/diffusion_gpu.cu
+        cuda/diffusion_gpu.h
+    )
+endif()
+
+add_executable(tests tests/test.cpp ${COMMON_SOURCES})
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain Eigen3::Eigen ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json Boost::serialization) 
 # Boost::mpi)
 #${Boost_LIBRARIES})
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(yaalpp main.cpp
-        utils/circle.cpp
-        utils/circle.hpp
-        physics/quadtree.cpp
-        physics/quadtree.hpp
-        utils/rect.cpp
-        utils/rect.hpp
-        entity/Yaal.cpp
-        entity/Yaal.h
-        Constants.h
-        diffusion/separablefilter.hpp
-        diffusion/separablefilter.cpp
-        simulation/Environment.cpp
-        simulation/Environment.h
-        cuda/diffusion_gpu.cu
-        cuda/diffusion_gpu.h
-        video/stream.cpp
-        video/stream.h
-        utils/utils.cpp
-        utils/utils.h
-        entity/plant.cpp
-        entity/plant.hpp
-        utils/save.hpp
-        utils/save.cpp
-        topology/topology.cu
-        topology/topology.h
-)
+add_executable(yaalpp main.cpp ${COMMON_SOURCES})
 target_link_libraries(yaalpp PRIVATE Eigen3::Eigen argparse ${OpenCV_LIBS} MPI::MPI_CXX OpenMP::OpenMP_CXX nlohmann_json::nlohmann_json Boost::serialization)
 # ${Boost_LIBRARIES})

@@ -5,6 +5,7 @@
 #include "../entity/plant.hpp"
 #include "../diffusion/separablefilter.hpp"
 #include "../topology/topology.h"
+#include "../utils/statistics.hpp"
 
 using Vec2i = Eigen::Vector2i;
 using Eigen::Index;
@@ -38,6 +39,9 @@ public:
     std::vector<Plant> plants = {};
     Eigen::TensorMap<Tensor<float, 3>> decay_factors;
     Eigen::TensorMap<Tensor<float, 3>> max_values;
+    Statistics stats;
+    int current_timestep = 0;
+    int stats_interval = 10;  // Record stats every N timesteps
 
     Environment(int height, int width, int channels,
                 std::vector<float> &decay_factors_v,
@@ -93,6 +97,9 @@ public:
     /// Add the yaal body to the map
     void add_to_map(const Yaal &yaal);
 
+    /// Add the yaal's pheromone to the map
+    void add_pheromone(const Yaal &yaal);
+
     /// Add a plant to the environment
     void add_plant(Plant &&plant);
 
@@ -108,10 +115,35 @@ public:
     /// Resolve collisions between yaals and closests, and clamp the positions inside the environment. If a Yaal is in the shared area of another MPI process, it is added to a buffer that will be sent to the other process.
     bool resolve_collisions(const std::vector<Vec2> &closests);
 
+    /// Handle attacks between colliding Yaals - returns number of attacks
+    int handle_attacks();
+
+    /// Handle plant consumption by Yaals - returns number of plants eaten
+    int consume_plants();
+
+    /// Handle Yaal death and reproduction - returns number of births and deaths
+    std::pair<int, int> handle_life_cycle();
+
+    /// Respawn plants probabilistically - returns number of plants spawned
+    int respawn_plants();
+
     /// Perform a step in the environment
     void step();
 
     void create_yaals_and_plants(int num_yaal, int num_plant);
 
     void mpi_sync();
+
+    /// Write statistics to file and print summary
+    void finalize_statistics() {
+        if (mpi_rank == 0) {
+            stats.write_to_csv();
+            stats.print_summary();
+        }
+    }
+
+    /// Set statistics recording interval
+    void set_stats_interval(int interval) {
+        stats_interval = interval;
+    }
 };
